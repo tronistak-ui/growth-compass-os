@@ -1,0 +1,1 @@
+delete from public.organizations where name = 'Playwright Test Biz';
