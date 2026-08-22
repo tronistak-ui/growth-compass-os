@@ -41,7 +41,7 @@ function DiscoveryPage() {
   return (
     <AppShell
       title="Customer Discovery"
-      subtitle="Know exactly who you are selling to before you spend a rupee"
+      subtitle="Know exactly who you are selling to before you spend on marketing"
     >
       <div className="mb-5 grid gap-3 sm:grid-cols-3">
         <StatCard label="Segments defined" value={rows.length} />
