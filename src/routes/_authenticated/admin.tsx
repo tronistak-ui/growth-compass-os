@@ -114,7 +114,10 @@ function AdminPage() {
 
   async function claimAdmin() {
     const { data, error } = await (supabase.rpc as any)("claim_platform_admin");
-    if (error) return toast.error(error.message);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     if (data) {
       toast.success("Platform admin access granted");
       void qc.invalidateQueries();
@@ -128,7 +131,10 @@ function AdminPage() {
       .from("organizations")
       .update({ onboarding_status: stage, onboarding_completed: stage === "completed" })
       .eq("id", id);
-    if (error) return toast.error(error.message);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     toast.success(`Moved to ${stageLabel(stage)}`);
     void qc.invalidateQueries({ queryKey: ["admin", "organizations"] });
   }
