@@ -36,6 +36,15 @@ export function useSyncInsights(orgId?: string) {
         if (error) throw error;
       }
 
+      // New auto rows land on the DB default status; normalise them to the
+      // plan vocabulary without touching statuses the user has already moved.
+      const { error: statusError } = await (supabase.from("growth_opportunities") as any)
+        .update({ status: "identified" })
+        .eq("organization_id", orgId)
+        .eq("source", "auto")
+        .eq("status", "not_started");
+      if (statusError) throw statusError;
+
       // Remove stale auto rows whose rule no longer applies.
       const keep = insights.map((i) => i.key);
       let del = (supabase.from("growth_opportunities") as any)
