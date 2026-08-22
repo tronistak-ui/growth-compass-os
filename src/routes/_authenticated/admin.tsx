@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AppShell } from "@/components/growth/shell";
-import { Panel, StatCard, StatusPill, Meter } from "@/components/growth/ui";
+import { Panel, StatCard, Meter } from "@/components/growth/ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
