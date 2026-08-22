@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/growth/shell";
-import { Panel } from "@/components/growth/ui";
+import { Panel, StageTracker } from "@/components/growth/ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -77,25 +77,7 @@ function SettingsPage() {
         description="Where this business is in the Growth OS rollout"
         className="mb-4"
       >
-        <div className="flex flex-wrap items-center gap-2">
-          {ONBOARDING_STAGES.map((s, i) => (
-            <div key={s} className="flex items-center gap-2">
-              <div
-                className={cn(
-                  "flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium",
-                  i === stageIdx
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : i < stageIdx
-                      ? "border-primary/40 bg-primary/10 text-primary"
-                      : "border-border bg-card text-muted-foreground",
-                )}
-              >
-                <span className="num">{i + 1}</span> {stageLabel(s)}
-              </div>
-              {i < ONBOARDING_STAGES.length - 1 && <div className="h-px w-4 bg-border" />}
-            </div>
-          ))}
-        </div>
+        <StageTracker stage={currentStage} />
         <div className="mt-4 flex items-center gap-2">
           <Label className="text-xs text-muted-foreground">Move to</Label>
           <Select value={currentStage} onValueChange={setStage}>
