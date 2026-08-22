@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ONBOARDING_STAGES, STAGE_META, stageLabel } from "@/lib/niches";
 
 export function Panel({
   title,
@@ -168,5 +169,52 @@ export function StatusPill({ value }: { value: string }) {
     >
       {String(value).replace(/_/g, " ")}
     </span>
+  );
+}
+
+export function StageTracker({
+  stage,
+  compact = false,
+}: {
+  stage: string;
+  compact?: boolean;
+}) {
+  const stages = ONBOARDING_STAGES;
+  const idx = Math.max(0, stages.indexOf(stage as (typeof stages)[number]));
+  const meta = STAGE_META[stages[idx] as keyof typeof STAGE_META];
+  const progress = Math.round((idx / (stages.length - 1)) * 100);
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {stages.map((s, i) => (
+          <div key={s} className="flex items-center gap-1.5">
+            <div
+              className={cn(
+                "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium whitespace-nowrap",
+                i === idx
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : i < idx
+                    ? "border-primary/40 bg-primary/10 text-primary"
+                    : "border-border bg-card text-muted-foreground",
+              )}
+            >
+              <span className="num">{i + 1}</span> {stageLabel(s)}
+            </div>
+            {i < stages.length - 1 && <div className="h-px w-3 bg-border" />}
+          </div>
+        ))}
+      </div>
+      {!compact && (
+        <>
+          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-surface-3">
+            <div className="h-full rounded-full bg-primary" style={{ width: `${progress}%` }} />
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            {meta?.description} · {progress}% through rollout
+          </p>
+        </>
+      )}
+    </div>
   );
 }
