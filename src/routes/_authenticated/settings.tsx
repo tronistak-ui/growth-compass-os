@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useActiveOrg, useProfile, useSaveRow } from "@/lib/growth";
 import { NICHES, ONBOARDING_STAGES, stageLabel } from "@/lib/niches";
-import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export const Route = createFileRoute("/_authenticated/settings")({
@@ -54,7 +53,6 @@ function SettingsPage() {
   }
 
   const currentStage = form["onboarding_status"] ?? "not_started";
-  const stageIdx = Math.max(0, ONBOARDING_STAGES.indexOf(currentStage as any));
 
   function setStage(stage: string) {
     if (!org) return;
