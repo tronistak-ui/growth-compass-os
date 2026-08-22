@@ -29,6 +29,15 @@ export function useOrgData() {
   const isLoading =
     orgLoading || leads.isLoading || customers.isLoading || revenue.isLoading || expenses.isLoading;
 
+  const isError =
+    leads.isError ||
+    customers.isError ||
+    revenue.isError ||
+    expenses.isError ||
+    campaigns.isError ||
+    offers.isError ||
+    tasks.isError;
+
   return {
     org,
     orgId,
@@ -45,5 +54,6 @@ export function useOrgData() {
     metrics,
     insights,
     isLoading,
+    isError,
   };
 }

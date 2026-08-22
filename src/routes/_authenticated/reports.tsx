@@ -116,7 +116,6 @@ function ReportsPage() {
         </div>
       }
     >
-
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Revenue this month" value={money(m.revenueThisMonth, c)} />
         <StatCard label="Expenses this month" value={money(m.expensesThisMonth, c)} />
@@ -226,21 +225,38 @@ function ReportsPage() {
         <Panel title="Where money goes" description="Expenses by category">
           <BreakdownList rows={byCategory} currency={c} />
         </Panel>
+
+        <Panel
+          title="New vs returning customers"
+          description="Customers with more than one purchase, all time"
+        >
+          <BreakdownList
+            rows={[
+              { name: "Returning", value: m.repeatCustomers },
+              {
+                name: "New (single purchase)",
+                value: Math.max(0, m.totalCustomers - m.repeatCustomers),
+              },
+            ]}
+            format="count"
+          />
+        </Panel>
       </div>
     </AppShell>
-
   );
 }
 
 function BreakdownList({
   rows,
   currency,
+  format = "currency",
 }: {
   rows: { name: string; value: number }[];
-  currency: string;
+  currency?: string;
+  format?: "currency" | "count";
 }) {
   const max = Math.max(1, ...rows.map((r) => r.value));
-  if (rows.length === 0)
+  if (rows.length === 0 || rows.every((r) => r.value === 0))
     return <p className="text-sm text-muted-foreground">Nothing recorded yet.</p>;
   return (
     <ul className="space-y-2.5">
@@ -248,7 +264,9 @@ function BreakdownList({
         <li key={r.name}>
           <div className="flex items-center justify-between text-sm">
             <span className="truncate text-foreground/90">{r.name}</span>
-            <span className="num font-medium">{money(r.value, currency)}</span>
+            <span className="num font-medium">
+              {format === "count" ? r.value.toLocaleString() : money(r.value, currency ?? "USD")}
+            </span>
           </div>
           <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-3">
             <div

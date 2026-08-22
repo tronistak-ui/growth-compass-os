@@ -26,7 +26,8 @@ export const Route = createFileRoute("/_authenticated/onboarding")({
       { title: "Business onboarding — TrendZypher Growth OS" },
       {
         name: "description",
-        content: "Tell the Growth OS about your business, model and goals to activate your workspace.",
+        content:
+          "Tell the Growth OS about your business, model and goals to activate your workspace.",
       },
       { property: "og:title", content: "Business onboarding — TrendZypher Growth OS" },
       { property: "og:description", content: "Set up your business profile, model and goals." },
@@ -116,7 +117,6 @@ function Onboarding() {
       acquisition_channels: form["acquisition_channels"] ?? [],
       owner_id: currentUser.id,
       onboarding_status: "audit",
-      onboarding_completed: true,
     };
 
     const { error } = await supabase.from("organizations").insert(payload as any);
@@ -146,7 +146,6 @@ function Onboarding() {
     toast.success("Workspace ready");
     navigate({ to: "/dashboard" });
   }
-
 
   return (
     <div className="dotfield min-h-screen bg-background px-4 py-10">

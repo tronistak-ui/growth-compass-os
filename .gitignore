@@ -20,6 +20,12 @@ dist-ssr
 .wrangler/
 .dev.vars
 
+supabase/.temp/
+
+# bun.lock is authoritative; package-lock.json was only generated locally
+# because bun wasn't available in this environment.
+package-lock.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

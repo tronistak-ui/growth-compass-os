@@ -14,6 +14,21 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_config: {
+        Row: {
+          key: string
+          value: string
+        }
+        Insert: {
+          key: string
+          value: string
+        }
+        Update: {
+          key?: string
+          value?: string
+        }
+        Relationships: []
+      }
       campaigns: {
         Row: {
           budget: number | null
@@ -506,6 +521,50 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          body: string | null
+          created_at: string
+          health_event_id: string | null
+          id: string
+          link: string | null
+          read_at: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          health_event_id?: string | null
+          id?: string
+          link?: string | null
+          read_at?: string | null
+          title: string
+          type?: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          health_event_id?: string | null
+          id?: string
+          link?: string | null
+          read_at?: string | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_health_event_id_fkey"
+            columns: ["health_event_id"]
+            isOneToOne: false
+            referencedRelation: "system_health_events"
             referencedColumns: ["id"]
           },
         ]
@@ -1042,6 +1101,56 @@ export type Database = {
           },
         ]
       }
+      system_health_events: {
+        Row: {
+          created_at: string
+          detail: Json
+          event_type: string
+          id: string
+          message: string
+          organization_id: string | null
+          resolved: boolean
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: string
+          source: string
+        }
+        Insert: {
+          created_at?: string
+          detail?: Json
+          event_type: string
+          id?: string
+          message: string
+          organization_id?: string | null
+          resolved?: boolean
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          source: string
+        }
+        Update: {
+          created_at?: string
+          detail?: Json
+          event_type?: string
+          id?: string
+          message?: string
+          organization_id?: string | null
+          resolved?: boolean
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "system_health_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           created_at: string
@@ -1115,7 +1224,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      advance_onboarding_stage: { Args: { _org_id: string }; Returns: undefined }
       claim_platform_admin: { Args: never; Returns: boolean }
+      get_onboarding_checklist: { Args: { _org_id: string }; Returns: Json }
+      has_any_role: {
+        Args: {
+          _roles: Database["public"]["Enums"]["app_role"][]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1126,7 +1244,7 @@ export type Database = {
       is_org_member: { Args: { _org_id: string }; Returns: boolean }
     }
     Enums: {
-      app_role: "platform_admin" | "business_owner"
+      app_role: "platform_admin" | "business_owner" | "support" | "auditor"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1254,7 +1372,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["platform_admin", "business_owner"],
+      app_role: ["platform_admin", "business_owner", "support", "auditor"],
     },
   },
 } as const

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ONBOARDING_STAGES, STAGE_META, stageLabel } from "@/lib/niches";
@@ -92,6 +93,32 @@ export function EmptyState({
       <h3 className="font-display text-sm font-semibold text-ink">{title}</h3>
       {description && <p className="mt-1 max-w-sm text-xs text-muted-foreground">{description}</p>}
       {action && <div className="mt-4">{action}</div>}
+    </div>
+  );
+}
+
+export function ErrorState({
+  title = "Couldn't load this data",
+  description,
+  onRetry,
+}: {
+  title?: string;
+  description?: string | undefined;
+  onRetry?: (() => void) | undefined;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-destructive/30 bg-destructive/5 px-6 py-12 text-center">
+      <AlertTriangle className="size-6 text-destructive" />
+      <h3 className="mt-3 font-display text-sm font-semibold text-ink">{title}</h3>
+      {description && <p className="mt-1 max-w-sm text-xs text-muted-foreground">{description}</p>}
+      {onRetry && (
+        <button
+          onClick={onRetry}
+          className="mt-4 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-ink hover:bg-muted"
+        >
+          Try again
+        </button>
+      )}
     </div>
   );
 }
