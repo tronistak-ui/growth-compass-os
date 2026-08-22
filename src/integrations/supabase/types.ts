@@ -1101,6 +1101,65 @@ export type Database = {
           },
         ]
       }
+      social_connections: {
+        Row: {
+          access_token: string
+          created_at: string
+          external_account_id: string | null
+          external_account_name: string | null
+          id: string
+          last_error: string | null
+          last_synced_at: string | null
+          organization_id: string
+          provider: string
+          refresh_token: string | null
+          scopes: string[]
+          status: string
+          token_expires_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_token: string
+          created_at?: string
+          external_account_id?: string | null
+          external_account_name?: string | null
+          id?: string
+          last_error?: string | null
+          last_synced_at?: string | null
+          organization_id: string
+          provider: string
+          refresh_token?: string | null
+          scopes?: string[]
+          status?: string
+          token_expires_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_token?: string
+          created_at?: string
+          external_account_id?: string | null
+          external_account_name?: string | null
+          id?: string
+          last_error?: string | null
+          last_synced_at?: string | null
+          organization_id?: string
+          provider?: string
+          refresh_token?: string | null
+          scopes?: string[]
+          status?: string
+          token_expires_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_connections_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       system_health_events: {
         Row: {
           created_at: string
@@ -1221,7 +1280,27 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      social_connections_public: {
+        Row: {
+          id: string
+          organization_id: string
+          provider: string
+          status: string
+          external_account_name: string | null
+          last_synced_at: string | null
+          last_error: string | null
+          created_at: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_connections_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       advance_onboarding_stage: { Args: { _org_id: string }; Returns: undefined }

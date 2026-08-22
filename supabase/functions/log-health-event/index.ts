@@ -11,10 +11,17 @@
 // SUPABASE_ANON_KEY (auto-provided, used to validate the caller's JWT).
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { handleCors, withCors } from "../_shared/cors.ts";
 
 const ALLOWED_SEVERITY = new Set(["info", "warning", "error", "critical"]);
 
 Deno.serve(async (req: Request) => {
+  const preflight = handleCors(req);
+  if (preflight) return preflight;
+  return withCors(await handleLogHealthEvent(req));
+});
+
+async function handleLogHealthEvent(req: Request): Promise<Response> {
   if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
   }
@@ -76,4 +83,4 @@ Deno.serve(async (req: Request) => {
     status: 201,
     headers: { "Content-Type": "application/json" },
   });
-});
+}
