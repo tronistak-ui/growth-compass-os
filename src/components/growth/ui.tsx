@@ -90,9 +90,7 @@ export function EmptyState({
   return (
     <div className="dotfield flex flex-col items-center justify-center rounded-xl border border-dashed border-border px-6 py-12 text-center">
       <h3 className="font-display text-sm font-semibold text-ink">{title}</h3>
-      {description && (
-        <p className="mt-1 max-w-sm text-xs text-muted-foreground">{description}</p>
-      )}
+      {description && <p className="mt-1 max-w-sm text-xs text-muted-foreground">{description}</p>}
       {action && <div className="mt-4">{action}</div>}
     </div>
   );
@@ -172,13 +170,7 @@ export function StatusPill({ value }: { value: string }) {
   );
 }
 
-export function StageTracker({
-  stage,
-  compact = false,
-}: {
-  stage: string;
-  compact?: boolean;
-}) {
+export function StageTracker({ stage, compact = false }: { stage: string; compact?: boolean }) {
   const stages = ONBOARDING_STAGES;
   const idx = Math.max(0, stages.indexOf(stage as (typeof stages)[number]));
   const meta = STAGE_META[stages[idx] as keyof typeof STAGE_META];

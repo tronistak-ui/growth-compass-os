@@ -73,8 +73,16 @@ function GrowthPage() {
           <LeverCard label="More customers" value={String(m.newCustomersThisMonth)} />
           <LeverCard label="Higher order value" value={money(m.aov, c)} />
           <LeverCard label="Buy more often" value={pct(m.repeatRate, 0)} />
-          <LeverCard label="Better margin" value={pct(m.margin)} tone={m.margin >= 0 ? "positive" : "negative"} />
-          <LeverCard label="Lost-lead recovery" value={String(m.lostLeads)} tone={m.lostLeads > 0 ? "negative" : "default"} />
+          <LeverCard
+            label="Better margin"
+            value={pct(m.margin)}
+            tone={m.margin >= 0 ? "positive" : "negative"}
+          />
+          <LeverCard
+            label="Lost-lead recovery"
+            value={String(m.lostLeads)}
+            tone={m.lostLeads > 0 ? "negative" : "default"}
+          />
           <LeverCard label="Repeat customers" value={String(m.repeatCustomers)} />
           <LeverCard label="Upsells" value="Plan it" muted />
           <LeverCard label="Cross-sells" value="Plan it" muted />
@@ -86,7 +94,12 @@ function GrowthPage() {
           title="Where the upside is"
           description="Rule-based, from your own numbers"
           actions={
-            <Button size="sm" variant="outline" onClick={syncInsights} disabled={sync.isPending || d.insights.length === 0}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={syncInsights}
+              disabled={sync.isPending || d.insights.length === 0}
+            >
               {sync.isPending ? "Syncing…" : "Add to plan"}
             </Button>
           }

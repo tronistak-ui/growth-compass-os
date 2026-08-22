@@ -143,9 +143,7 @@ function AdminPage() {
     return (
       <AppShell title="Admin">
         <Panel title="Not authorised">
-          <p className="text-sm text-muted-foreground">
-            You do not have access to the admin area.
-          </p>
+          <p className="text-sm text-muted-foreground">You do not have access to the admin area.</p>
           <Button className="mt-4" variant="outline" onClick={claimAdmin}>
             Claim platform admin
           </Button>
@@ -159,9 +157,7 @@ function AdminPage() {
 
   const all = orgs.data ?? [];
   const rows = q
-    ? all.filter((r) =>
-        `${r.name} ${r.niche ?? ""}`.toLowerCase().includes(q.trim().toLowerCase()),
-      )
+    ? all.filter((r) => `${r.name} ${r.niche ?? ""}`.toLowerCase().includes(q.trim().toLowerCase()))
     : all;
   const stats = activity.data;
 
@@ -272,9 +268,7 @@ function AdminPage() {
         <Panel title="Onboarding pipeline" description="How clients are distributed across stages">
           <div className="space-y-3">
             {ONBOARDING_STAGES.map((s) => {
-              const count = all.filter(
-                (r) => (r.onboarding_status ?? "not_started") === s,
-              ).length;
+              const count = all.filter((r) => (r.onboarding_status ?? "not_started") === s).length;
               const value = all.length ? Math.round((count / all.length) * 100) : 0;
               return <Meter key={s} label={`${stageLabel(s)} · ${count}`} value={value} />;
             })}
@@ -341,11 +335,7 @@ function AdminPage() {
                       {new Date(r.created_at).toLocaleDateString()}
                     </td>
                     <td className="py-2 text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openWorkspace(r.id, r.name)}
-                      >
+                      <Button variant="ghost" size="sm" onClick={() => openWorkspace(r.id, r.name)}>
                         Open workspace
                       </Button>
                     </td>
