@@ -5,11 +5,21 @@ import { AppShell } from "@/components/growth/shell";
 import { Panel, StatCard, Meter } from "@/components/growth/ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useIsAdmin, setStoredOrgId } from "@/lib/growth";
+import { useIsAdmin, useHasRole, setStoredOrgId } from "@/lib/growth";
 import { money } from "@/lib/metrics";
 import { ONBOARDING_STAGES, stageLabel } from "@/lib/niches";
+import { HealthAlertsPanel } from "@/components/growth/health-alerts";
+import { TeamRolesPanel } from "@/components/growth/team-roles";
 import {
   Select,
   SelectContent,
@@ -41,21 +51,28 @@ type OrgRow = {
   created_at: string;
   onboarding_status: string | null;
   onboarding_completed: boolean | null;
+  internal_notes: string | null;
 };
 
 function AdminPage() {
   const { data: isAdmin, isLoading: roleLoading } = useIsAdmin();
+  const { data: canView, isLoading: viewRoleLoading } = useHasRole("platform_admin", "support");
   const navigate = useNavigate();
   const [q, setQ] = useState("");
+  const [notesFor, setNotesFor] = useState<OrgRow | null>(null);
+  const [notesDraft, setNotesDraft] = useState("");
+  const [savingNotes, setSavingNotes] = useState(false);
   const qc = useQueryClient();
 
   const orgs = useQuery({
     queryKey: ["admin", "organizations"],
-    enabled: !!isAdmin,
+    enabled: !!canView,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("organizations")
-        .select("id,name,niche,currency,created_at,onboarding_status,onboarding_completed")
+        .select(
+          "id,name,niche,currency,created_at,onboarding_status,onboarding_completed,internal_notes",
+        )
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as OrgRow[];
@@ -64,7 +81,7 @@ function AdminPage() {
 
   const activity = useQuery({
     queryKey: ["admin", "activity"],
-    enabled: !!isAdmin,
+    enabled: !!canView,
     queryFn: async () => {
       const [leads, customers, revenue] = await Promise.all([
         supabase.from("leads").select("organization_id,status"),
@@ -90,7 +107,7 @@ function AdminPage() {
 
   const health = useQuery({
     queryKey: ["admin", "health"],
-    enabled: !!isAdmin,
+    enabled: !!canView,
     refetchInterval: 60_000,
     queryFn: async () => {
       const started = performance.now();
@@ -139,7 +156,7 @@ function AdminPage() {
     void qc.invalidateQueries({ queryKey: ["admin", "organizations"] });
   }
 
-  if (!roleLoading && !isAdmin) {
+  if (!roleLoading && !viewRoleLoading && !canView) {
     return (
       <AppShell title="Admin">
         <Panel title="Not authorised">
@@ -176,6 +193,30 @@ function AdminPage() {
     void navigate({ to: "/dashboard" });
   }
 
+  function openNotes(row: OrgRow) {
+    setNotesFor(row);
+    setNotesDraft(row.internal_notes ?? "");
+  }
+
+  async function saveNotes() {
+    if (!notesFor) return;
+    setSavingNotes(true);
+    const { error } = await supabase
+      .from("organizations")
+      .update({ internal_notes: notesDraft.trim() || null })
+      .eq("id", notesFor.id);
+    setSavingNotes(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Notes saved");
+    setNotesFor(null);
+    void qc.invalidateQueries({ queryKey: ["admin", "organizations"] });
+  }
+
+  const totalRevenueTracked = [...(stats?.values() ?? [])].reduce((sum, a) => sum + a.revenue, 0);
+
   return (
     <AppShell
       title="Admin"
@@ -189,7 +230,7 @@ function AdminPage() {
         />
       }
     >
-      <div className="grid gap-3 sm:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <StatCard label="Businesses" value={all.length} />
         <StatCard
           label="Onboarded"
@@ -209,6 +250,11 @@ function AdminPage() {
                 new Date(r.created_at).getFullYear() === new Date().getFullYear(),
             ).length
           }
+        />
+        <StatCard
+          label="Revenue tracked"
+          value={totalRevenueTracked.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+          hint="across all clients, mixed currencies"
         />
       </div>
 
@@ -276,6 +322,11 @@ function AdminPage() {
         </Panel>
       </div>
 
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <HealthAlertsPanel />
+        {isAdmin && <TeamRolesPanel />}
+      </div>
+
       <Panel className="mt-4" title="Businesses" description="All organisations on the platform">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -335,6 +386,14 @@ function AdminPage() {
                       {new Date(r.created_at).toLocaleDateString()}
                     </td>
                     <td className="py-2 text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={r.internal_notes ? "text-ink" : "text-muted-foreground"}
+                        onClick={() => openNotes(r)}
+                      >
+                        Notes{r.internal_notes ? " •" : ""}
+                      </Button>
                       <Button variant="ghost" size="sm" onClick={() => openWorkspace(r.id, r.name)}>
                         Open workspace
                       </Button>
@@ -353,6 +412,28 @@ function AdminPage() {
           </table>
         </div>
       </Panel>
+
+      <Dialog open={!!notesFor} onOpenChange={(open) => !open && setNotesFor(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Support notes · {notesFor?.name}</DialogTitle>
+          </DialogHeader>
+          <Textarea
+            value={notesDraft}
+            onChange={(e) => setNotesDraft(e.target.value)}
+            placeholder="Internal notes visible only to platform admins and support — context for the next person who opens this account."
+            rows={6}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNotesFor(null)}>
+              Cancel
+            </Button>
+            <Button disabled={savingNotes} onClick={() => void saveNotes()}>
+              Save notes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }

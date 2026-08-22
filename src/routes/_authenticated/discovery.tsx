@@ -4,6 +4,7 @@ import { CrudPanel } from "@/components/growth/crud";
 import { StatCard } from "@/components/growth/ui";
 import { useActiveOrg, useRows } from "@/lib/growth";
 import { money } from "@/lib/metrics";
+import { lexicon } from "@/lib/niches";
 
 export const Route = createFileRoute("/_authenticated/discovery")({
   head: () => ({
@@ -32,6 +33,7 @@ function DiscoveryPage() {
     order: { column: "created_at" },
   });
   const rows = segments ?? [];
+  const lex = lexicon(org?.["niche"]);
   const currency = (org?.["currency"] as string) ?? "USD";
   const highPriority = rows.filter((r) => r["priority"] === "high").length;
   const avgValue = rows.length
@@ -46,7 +48,10 @@ function DiscoveryPage() {
       <div className="mb-5 grid gap-3 sm:grid-cols-3">
         <StatCard label="Segments defined" value={rows.length} />
         <StatCard label="High priority" value={highPriority} tone="positive" />
-        <StatCard label="Avg customer value" value={money(avgValue, currency)} />
+        <StatCard
+          label={`Avg ${lex.customer.toLowerCase()} value`}
+          value={money(avgValue, currency)}
+        />
       </div>
 
       <CrudPanel
@@ -71,7 +76,11 @@ function DiscoveryPage() {
           },
           { name: "age_range", label: "Age range", placeholder: "25-40" },
           { name: "location", label: "Location", placeholder: "Within 5km" },
-          { name: "customer_value", label: "Typical value", type: "number" },
+          {
+            name: "customer_value",
+            label: `Typical ${lex.customer.toLowerCase()} value`,
+            type: "number",
+          },
           { name: "buying_frequency", label: "Buys how often", placeholder: "Twice a month" },
           { name: "problems", label: "Problems they have", type: "textarea", inTable: false },
           { name: "goals", label: "What they want", type: "textarea", inTable: false },

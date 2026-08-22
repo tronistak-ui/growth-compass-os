@@ -19,11 +19,14 @@ import {
   Panel,
   StatCard,
   EmptyState,
+  ErrorState,
   LoadingRows,
   ScoreDial,
   StageTracker,
 } from "@/components/growth/ui";
 import { useOrgData } from "@/lib/use-org-data";
+import { OnboardingChecklist } from "@/components/growth/onboarding-checklist";
+import { useOnboardingChecklist } from "@/lib/checklist";
 import { money, pct, monthlySeries } from "@/lib/metrics";
 import { lexicon } from "@/lib/niches";
 import { Button } from "@/components/ui/button";
@@ -53,6 +56,7 @@ const TONE: Record<string, string> = {
 
 function Dashboard() {
   const d = useOrgData();
+  const checklist = useOnboardingChecklist(d.orgId);
   const m = d.metrics;
   const lex = lexicon(d.org?.["niche"]);
   const series = monthlySeries(d.revenue, d.expenses);
@@ -97,6 +101,8 @@ function Dashboard() {
     >
       {d.isLoading ? (
         <LoadingRows rows={6} />
+      ) : d.isError ? (
+        <ErrorState description="One or more parts of your dashboard failed to load. Please try again." />
       ) : (
         <div className="space-y-6">
           <Panel
@@ -107,7 +113,11 @@ function Dashboard() {
           </Panel>
 
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-            <StatCard label={lex.leads} value={m.totalLeads} hint={`${m.qualifiedLeads} qualified`} />
+            <StatCard
+              label={lex.leads}
+              value={m.totalLeads}
+              hint={`${m.qualifiedLeads} qualified`}
+            />
             <StatCard
               label={`New ${lex.customers.toLowerCase()}`}
               value={m.newCustomersThisMonth}
@@ -133,7 +143,11 @@ function Dashboard() {
           </div>
 
           <div className="grid gap-4 lg:grid-cols-3">
-            <Panel title="Growth funnel" description="Reach → Leads → Qualified → Customers → Revenue" className="lg:col-span-2">
+            <Panel
+              title="Growth funnel"
+              description="Reach → Leads → Qualified → Customers → Revenue"
+              className="lg:col-span-2"
+            >
               <div className="space-y-3">
                 {funnel.map((f, i) => (
                   <div key={f.label} className="flex items-center gap-3">
@@ -155,14 +169,21 @@ function Dashboard() {
 
             <Panel title="Presence score" description="Discoverability · trust · consistency">
               <ScoreDial score={d.presenceScore.total} label="Online presence" />
-              <Link to="/presence" className="mt-4 inline-flex items-center gap-1 text-xs text-primary">
+              <Link
+                to="/presence"
+                className="mt-4 inline-flex items-center gap-1 text-xs text-primary"
+              >
                 Improve presence <ArrowRight className="size-3" />
               </Link>
             </Panel>
           </div>
 
           <div className="grid gap-4 lg:grid-cols-3">
-            <Panel title="Revenue, expenses & profit" description="Last 6 months" className="lg:col-span-2">
+            <Panel
+              title="Revenue, expenses & profit"
+              description="Last 6 months"
+              className="lg:col-span-2"
+            >
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={series}>
@@ -212,7 +233,10 @@ function Dashboard() {
 
             <Panel title="Revenue by source">
               {m.bySource.length === 0 ? (
-                <EmptyState title="No revenue recorded" description="Add transactions in Finance." />
+                <EmptyState
+                  title="No revenue recorded"
+                  description="Add transactions in Finance."
+                />
               ) : (
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
@@ -236,6 +260,10 @@ function Dashboard() {
               )}
             </Panel>
           </div>
+
+          {checklist.data && checklist.data.percent < 100 && (
+            <OnboardingChecklist orgId={d.orgId} />
+          )}
 
           <Panel
             title="Growth opportunities"
@@ -272,7 +300,11 @@ function Dashboard() {
                 <div className="h-56">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={m.leadsBySource}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="var(--border)"
+                        vertical={false}
+                      />
                       <XAxis dataKey="name" tickLine={false} axisLine={false} fontSize={11} />
                       <YAxis tickLine={false} axisLine={false} fontSize={11} width={30} />
                       <Tooltip cursor={{ fill: "var(--surface-3)" }} />

@@ -31,7 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Panel, EmptyState, LoadingRows, StatusPill } from "./ui";
+import { Panel, EmptyState, ErrorState, LoadingRows, StatusPill } from "./ui";
 import { useRows, useSaveRow, useDeleteRow, type Row, type QueryOpts } from "@/lib/growth";
 
 export type Field = {
@@ -69,7 +69,7 @@ export function CrudPanel({
   emptyDescription?: string | undefined;
   extraActions?: ReactNode | undefined;
 }) {
-  const { data: rows, isLoading } = useRows(table, orgId, queryOpts ?? {});
+  const { data: rows, isLoading, isError, error, refetch } = useRows(table, orgId, queryOpts ?? {});
   const save = useSaveRow(table, orgId);
   const remove = useDeleteRow(table, orgId);
   const [editing, setEditing] = useState<Row | null>(null);
@@ -138,6 +138,11 @@ export function CrudPanel({
     >
       {isLoading ? (
         <LoadingRows />
+      ) : isError ? (
+        <ErrorState
+          description={error instanceof Error ? error.message : undefined}
+          onRetry={() => void refetch()}
+        />
       ) : filtered.length === 0 ? (
         <EmptyState
           title={emptyTitle ?? `No ${title.toLowerCase()} yet`}
@@ -217,14 +222,14 @@ export function CrudPanel({
             {fields
               .filter((f) => f.inForm !== false)
               .map((f) => (
-              <div
-                key={f.name}
-                className={f.type === "textarea" ? "sm:col-span-2 space-y-1.5" : "space-y-1.5"}
-              >
-                <Label htmlFor={f.name}>{f.label}</Label>
-                <FieldInput field={f} value={editing?.[f.name]} />
-              </div>
-            ))}
+                <div
+                  key={f.name}
+                  className={f.type === "textarea" ? "sm:col-span-2 space-y-1.5" : "space-y-1.5"}
+                >
+                  <Label htmlFor={f.name}>{f.label}</Label>
+                  <FieldInput field={f} value={editing?.[f.name]} />
+                </div>
+              ))}
             <DialogFooter className="sm:col-span-2">
               <Button type="button" variant="outline" onClick={() => setEditing(null)}>
                 Cancel
@@ -264,9 +269,7 @@ export function CrudPanel({
 }
 
 export function FieldInput({ field, value }: { field: Field; value: any }) {
-  const [selectValue, setSelectValue] = useState<string>(
-    value == null ? "" : String(value),
-  );
+  const [selectValue, setSelectValue] = useState<string>(value == null ? "" : String(value));
 
   if (field.type === "textarea")
     return (

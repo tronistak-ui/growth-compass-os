@@ -29,21 +29,34 @@ export function useSession() {
   return { session, user: session?.user ?? null, loading };
 }
 
-export function useIsAdmin() {
+export type AppRole = "platform_admin" | "support" | "auditor" | "business_owner";
+
+/** All roles held by the current user (a user may hold more than one). */
+export function useRoles() {
   const { user } = useSession();
   return useQuery({
-    queryKey: ["is-admin", user?.id],
+    queryKey: ["roles", user?.id],
     enabled: !!user,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("user_roles")
         .select("role")
-        .eq("user_id", user!.id)
-        .eq("role", "platform_admin")
-        .maybeSingle();
-      return !!data;
+        .eq("user_id", user!.id);
+      if (error) throw error;
+      return (data ?? []).map((r) => r.role as AppRole);
     },
   });
+}
+
+export function useIsAdmin() {
+  const roles = useRoles();
+  return { ...roles, data: !!roles.data?.includes("platform_admin") };
+}
+
+/** True once roles have loaded and include any of the given roles. */
+export function useHasRole(...roles: AppRole[]) {
+  const q = useRoles();
+  return { ...q, data: !!q.data?.some((r) => roles.includes(r)) };
 }
 
 export function useProfile() {

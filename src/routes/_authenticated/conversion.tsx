@@ -4,6 +4,7 @@ import { CrudPanel } from "@/components/growth/crud";
 import { Panel, StatCard, Meter } from "@/components/growth/ui";
 import { useActiveOrg, useRows } from "@/lib/growth";
 import { pct } from "@/lib/metrics";
+import { lexicon } from "@/lib/niches";
 
 export const Route = createFileRoute("/_authenticated/conversion")({
   head: () => ({
@@ -26,7 +27,8 @@ export const Route = createFileRoute("/_authenticated/conversion")({
 });
 
 function ConversionPage() {
-  const { orgId } = useActiveOrg();
+  const { org, orgId } = useActiveOrg();
+  const lex = lexicon(org?.["niche"]);
   const { data: snapshots } = useRows("funnel_snapshots", orgId, {
     order: { column: "period_month" },
   });
@@ -46,10 +48,10 @@ function ConversionPage() {
     <AppShell title="Conversion" subtitle="Where interested people stop becoming customers">
       <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Visitors (latest)" value={visitors} />
-        <StatCard label="Enquiries" value={leads} hint={pct(rate(leads, visitors))} />
+        <StatCard label={lex.leads} value={leads} hint={pct(rate(leads, visitors))} />
         <StatCard label="Qualified" value={qualified} hint={pct(rate(qualified, leads))} />
         <StatCard
-          label="Customers"
+          label={lex.customers}
           value={customers}
           hint={pct(rate(customers, leads))}
           tone="positive"
@@ -59,9 +61,15 @@ function ConversionPage() {
       <div className="grid gap-4 lg:grid-cols-3">
         <Panel title="Funnel health" description="Latest recorded month">
           <div className="space-y-3">
-            <Meter label="Visitor → enquiry" value={Math.round(rate(leads, visitors))} />
-            <Meter label="Enquiry → qualified" value={Math.round(rate(qualified, leads))} />
-            <Meter label="Qualified → customer" value={Math.round(rate(customers, qualified))} />
+            <Meter
+              label={`Visitor → ${lex.lead.toLowerCase()}`}
+              value={Math.round(rate(leads, visitors))}
+            />
+            <Meter label={`${lex.lead} → qualified`} value={Math.round(rate(qualified, leads))} />
+            <Meter
+              label={`Qualified → ${lex.customer.toLowerCase()}`}
+              value={Math.round(rate(customers, qualified))}
+            />
             <Meter
               label="Assets ready"
               value={Math.round(
@@ -123,7 +131,7 @@ function ConversionPage() {
             fields={[
               { name: "period_month", label: "Month", type: "date", required: true },
               { name: "visitors", label: "Visitors", type: "number" },
-              { name: "leads", label: "Enquiries", type: "number" },
+              { name: "leads", label: lex.leads, type: "number" },
               { name: "qualified_leads", label: "Qualified", type: "number" },
               { name: "customers", label: "Customers", type: "number" },
             ]}
