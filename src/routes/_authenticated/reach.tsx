@@ -3,7 +3,7 @@ import { AppShell } from "@/components/growth/shell";
 import { CrudPanel } from "@/components/growth/crud";
 import { StatCard } from "@/components/growth/ui";
 import { useActiveOrg, useRows } from "@/lib/growth";
-import { CHANNELS } from "@/lib/niches";
+import { CHANNELS, nicheConfig } from "@/lib/niches";
 import { money, sum } from "@/lib/metrics";
 
 export const Route = createFileRoute("/_authenticated/reach")({
@@ -36,6 +36,7 @@ const STATUS = [
 function ReachPage() {
   const { org, orgId } = useActiveOrg();
   const currency = (org?.["currency"] as string) ?? "USD";
+  const cfg = nicheConfig(org?.["niche"]);
   const { data: offers } = useRows("offers", orgId, { order: { column: "created_at" } });
   const { data: campaigns } = useRows("campaigns", orgId, { order: { column: "created_at" } });
   const { data: segments } = useRows("customer_segments", orgId, {
@@ -73,6 +74,11 @@ function ReachPage() {
           tone="positive"
         />
         <StatCard label="Active campaigns" value={activeCampaigns.length} />
+        <StatCard
+          label="Best-fit channels"
+          value={cfg.priorityChannels.slice(0, 3).join(" · ")}
+          hint={`Typical for ${org?.["niche"] ?? "your category"}`}
+        />
         <StatCard label="Active budget" value={money(budget, currency)} />
       </div>
 

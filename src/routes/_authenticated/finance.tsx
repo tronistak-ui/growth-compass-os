@@ -4,7 +4,7 @@ import { CrudPanel } from "@/components/growth/crud";
 import { StatCard } from "@/components/growth/ui";
 import { useActiveOrg, useRows } from "@/lib/growth";
 import { useOrgData } from "@/lib/use-org-data";
-import { CHANNELS, EXPENSE_CATEGORIES } from "@/lib/niches";
+import { CHANNELS, EXPENSE_CATEGORIES, nicheConfig } from "@/lib/niches";
 import { money, pct } from "@/lib/metrics";
 
 export const Route = createFileRoute("/_authenticated/finance")({
@@ -28,10 +28,15 @@ export const Route = createFileRoute("/_authenticated/finance")({
 });
 
 function FinancePage() {
-  const { orgId } = useActiveOrg();
+  const { org, orgId } = useActiveOrg();
   const d = useOrgData();
   const m = d.metrics;
   const c = d.currency;
+  const cfg = nicheConfig(org?.["niche"]);
+  const expenseOptions = [
+    ...cfg.expenseCategories,
+    ...EXPENSE_CATEGORIES.filter((x) => !cfg.expenseCategories.includes(x)),
+  ].map((x) => ({ value: x, label: x }));
   const { data: customers } = useRows("customers", orgId, { order: { column: "created_at" } });
 
   const customerOptions = (customers ?? []).map((r) => ({
@@ -103,7 +108,7 @@ function FinancePage() {
               label: "Category",
               type: "select",
               required: true,
-              options: EXPENSE_CATEGORIES.map((x) => ({ value: x, label: x })),
+              options: expenseOptions,
             },
             { name: "description", label: "Description" },
             { name: "payment_method", label: "Payment method", inTable: false },
