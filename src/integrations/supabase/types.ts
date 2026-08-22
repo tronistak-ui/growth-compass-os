@@ -398,9 +398,13 @@ export type Database = {
           created_at: string
           current_value: string | null
           id: string
+          impact: number
+          insight_key: string | null
           lever: string
+          module: string | null
           organization_id: string
           recommended_action: string | null
+          source: string
           status: string
           target_value: string | null
           title: string
@@ -410,9 +414,13 @@ export type Database = {
           created_at?: string
           current_value?: string | null
           id?: string
+          impact?: number
+          insight_key?: string | null
           lever?: string
+          module?: string | null
           organization_id: string
           recommended_action?: string | null
+          source?: string
           status?: string
           target_value?: string | null
           title: string
@@ -422,9 +430,13 @@ export type Database = {
           created_at?: string
           current_value?: string | null
           id?: string
+          impact?: number
+          insight_key?: string | null
           lever?: string
+          module?: string | null
           organization_id?: string
           recommended_action?: string | null
+          source?: string
           status?: string
           target_value?: string | null
           title?: string
@@ -1103,6 +1115,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      claim_platform_admin: { Args: never; Returns: boolean }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

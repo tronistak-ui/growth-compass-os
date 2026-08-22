@@ -175,96 +175,190 @@ export function monthlySeries(revenue: Row[], expenses: Row[], months = 6) {
 }
 
 export type Insight = {
+  key: string;
   title: string;
   detail: string;
   tone: "critical" | "warning" | "info" | "good";
   module: string;
+  /** Which of the growth levers this insight maps to. */
+  lever: string;
+  current: string;
+  target: string;
+  /** 0-100 deterministic priority score. */
+  impact: number;
+  action: string;
 };
 
-/** Deterministic, rule-based insights computed from stored data only. */
-export function buildInsights(m: Metrics, presenceScore: number): Insight[] {
+/**
+ * Deterministic, rule-based insights computed from stored data only.
+ * No AI, no randomness — the same inputs always produce the same output,
+ * which is what makes these safe to persist as growth opportunities.
+ */
+export function buildInsights(m: Metrics, presence: number): Insight[] {
   const out: Insight[] = [];
 
   if (m.uncontacted > 0)
     out.push({
+      key: "uncontacted_leads",
       title: `${m.uncontacted} ${m.uncontacted === 1 ? "lead has" : "leads have"} not been contacted`,
       detail: "Uncontacted leads are the fastest available revenue. Work them before new spend.",
       tone: "critical",
       module: "Leads",
+      lever: "more_customers",
+      current: `${m.uncontacted} uncontacted`,
+      target: "0 uncontacted",
+      impact: Math.min(100, 60 + m.uncontacted * 4),
+      action: "Contact every new lead within 24 hours and log the outcome.",
     });
 
   if (m.followUpsDue > 0)
     out.push({
+      key: "followups_due",
       title: `${m.followUpsDue} follow-ups are due`,
       detail: "Follow-up dates have passed on open leads.",
       tone: "warning",
       module: "Leads",
+      lever: "more_customers",
+      current: `${m.followUpsDue} overdue`,
+      target: "0 overdue",
+      impact: Math.min(95, 50 + m.followUpsDue * 4),
+      action: "Clear the overdue follow-up list today and set the next date on each lead.",
     });
 
   if (m.totalLeads >= 5 && m.conversionRate < 20)
     out.push({
+      key: "low_conversion",
       title: `Conversion rate is ${m.conversionRate.toFixed(1)}%`,
-      detail: "Leads exist but few convert — conversion appears to be a growth opportunity.",
+      detail: "Leads exist but few convert — conversion is the constraint, not traffic.",
       tone: "warning",
       module: "Conversion",
+      lever: "more_customers",
+      current: pct(m.conversionRate),
+      target: "20%+",
+      impact: 80,
+      action: "Tighten the offer and response time before spending more on reach.",
     });
 
   if (m.totalCustomers >= 3 && m.repeatRate < 25)
     out.push({
+      key: "low_repeat_rate",
       title: `Repeat customer rate is ${m.repeatRate.toFixed(0)}%`,
-      detail: "Repeat purchases may be an opportunity — existing customers are cheaper to sell to.",
+      detail: "Existing customers are the cheapest revenue available.",
       tone: "warning",
       module: "Revenue Growth",
+      lever: "more_often",
+      current: pct(m.repeatRate, 0),
+      target: "25%+",
+      impact: 70,
+      action: "Run a win-back message to every customer who has bought only once.",
     });
 
   if (m.expensesLastMonth > 0 && m.revenueLastMonth > 0) {
     const expGrowth = ((m.expensesThisMonth - m.expensesLastMonth) / m.expensesLastMonth) * 100;
     if (expGrowth > m.revenueGrowth + 5)
       out.push({
+        key: "expenses_outpacing_revenue",
         title: "Expenses are growing faster than revenue",
         detail: `Expenses ${expGrowth.toFixed(0)}% vs revenue ${m.revenueGrowth.toFixed(0)}% month over month.`,
         tone: "critical",
         module: "Finance",
+        lever: "better_margin",
+        current: `${expGrowth.toFixed(0)}% expense growth`,
+        target: `below ${m.revenueGrowth.toFixed(0)}%`,
+        impact: 90,
+        action: "Review the largest expense category and cut or renegotiate it this month.",
       });
   }
+
+  if (m.margin < 20 && m.revenueThisMonth > 0)
+    out.push({
+      key: "thin_margin",
+      title: `Profit margin is ${m.margin.toFixed(0)}%`,
+      detail: "Margin is thin, so extra revenue converts into very little profit.",
+      tone: "warning",
+      module: "Finance",
+      lever: "better_margin",
+      current: pct(m.margin),
+      target: "20%+",
+      impact: 75,
+      action: "Raise price on the top-selling item or reduce the largest cost line.",
+    });
+
+  if (m.lostLeads >= 3)
+    out.push({
+      key: "lost_lead_recovery",
+      title: `${m.lostLeads} lost leads can be re-opened`,
+      detail: "Lost leads already know you — a single follow-up sequence often recovers some.",
+      tone: "info",
+      module: "Revenue Growth",
+      lever: "lost_lead_recovery",
+      current: `${m.lostLeads} lost`,
+      target: "10% recovered",
+      impact: 55,
+      action: "Send one recovery offer to every lead marked lost in the last 90 days.",
+    });
 
   if (m.leadsBySource.length > 0 && m.totalLeads >= 3) {
     const top = m.leadsBySource[0]!;
     out.push({
+      key: "best_lead_source",
       title: `${cap(top.name)} generates the most leads`,
       detail: `${top.value} of ${m.totalLeads} leads came from ${top.name}.`,
       tone: "good",
       module: "Reach",
+      lever: "more_customers",
+      current: `${top.value} leads from ${top.name}`,
+      target: "double down",
+      impact: 45,
+      action: `Put the next unit of time or budget into ${top.name}.`,
     });
   }
 
   if (m.bySource.length > 1) {
     const top = m.bySource[0]!;
     out.push({
+      key: "best_revenue_source",
       title: `${cap(top.name)} drives the most revenue`,
       detail: `${top.name} accounts for the largest share of recorded revenue.`,
       tone: "info",
       module: "Finance",
+      lever: "higher_value",
+      current: top.name,
+      target: "protect and scale",
+      impact: 40,
+      action: `Make sure ${top.name} has an active offer running at all times.`,
     });
   }
 
-  if (presenceScore < 70)
+  if (presence < 70)
     out.push({
-      title: `Presence score is ${presenceScore}/100`,
+      key: "presence_gap",
+      title: `Presence score is ${presence}/100`,
       detail: "Your online presence has gaps that reduce discoverability and trust.",
       tone: "warning",
       module: "Presence",
+      lever: "more_customers",
+      current: `${presence}/100`,
+      target: "70+",
+      impact: 65,
+      action: "Fix the lowest presence pillar first — usually Google profile completeness.",
     });
 
   if (m.totalRevenue === 0)
     out.push({
+      key: "no_revenue",
       title: "No revenue recorded yet",
       detail: "Add revenue transactions so profit, AOV and growth can be calculated.",
       tone: "info",
       module: "Finance",
+      lever: "higher_value",
+      current: "0 transactions",
+      target: "log every sale",
+      impact: 85,
+      action: "Record the last 30 days of sales in Finance.",
     });
 
-  return out;
+  return out.sort((a, b) => b.impact - a.impact);
 }
 
 function cap(s: string) {

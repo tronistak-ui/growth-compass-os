@@ -3,6 +3,10 @@ import { AppShell } from "@/components/growth/shell";
 import { CrudPanel } from "@/components/growth/crud";
 import { Panel, StatCard } from "@/components/growth/ui";
 import { useActiveOrg } from "@/lib/growth";
+import { useSyncInsights } from "@/lib/opportunities";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import { nicheConfig } from "@/lib/niches";
 import { useOrgData } from "@/lib/use-org-data";
 import { money, pct } from "@/lib/metrics";
 import { cn } from "@/lib/utils";
@@ -33,11 +37,24 @@ function GrowthPage() {
   const d = useOrgData();
   const m = d.metrics;
   const c = d.currency;
+  const cfg = nicheConfig(d.org?.["niche"]);
+  const sync = useSyncInsights(orgId);
+
+  function syncInsights() {
+    sync.mutate(d.insights, {
+      onSuccess: (n) => toast.success(`${n} rule-based opportunities synced to your growth plan`),
+      onError: (e: any) => toast.error(e.message ?? "Could not sync opportunities"),
+    });
+  }
 
   return (
     <AppShell title="Revenue Growth" subtitle="Four levers decide how fast you grow">
       <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="New customers / month" value={m.newCustomersThisMonth} />
+        <StatCard
+          label="North star"
+          value={cfg.northStar}
+          hint={`Focus metric for ${d.org?.["niche"] ?? "your business"}`}
+        />
         <StatCard label="Average order value" value={money(m.aov, c)} />
         <StatCard label="Repeat rate" value={pct(m.repeatRate)} />
         <StatCard
@@ -56,8 +73,16 @@ function GrowthPage() {
           <LeverCard label="More customers" value={String(m.newCustomersThisMonth)} />
           <LeverCard label="Higher order value" value={money(m.aov, c)} />
           <LeverCard label="Buy more often" value={pct(m.repeatRate, 0)} />
-          <LeverCard label="Better margin" value={pct(m.margin)} tone={m.margin >= 0 ? "positive" : "negative"} />
-          <LeverCard label="Lost-lead recovery" value={String(m.lostLeads)} tone={m.lostLeads > 0 ? "negative" : "default"} />
+          <LeverCard
+            label="Better margin"
+            value={pct(m.margin)}
+            tone={m.margin >= 0 ? "positive" : "negative"}
+          />
+          <LeverCard
+            label="Lost-lead recovery"
+            value={String(m.lostLeads)}
+            tone={m.lostLeads > 0 ? "negative" : "default"}
+          />
           <LeverCard label="Repeat customers" value={String(m.repeatCustomers)} />
           <LeverCard label="Upsells" value="Plan it" muted />
           <LeverCard label="Cross-sells" value="Plan it" muted />
@@ -65,20 +90,41 @@ function GrowthPage() {
       </Panel>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <Panel title="Where the upside is" description="Rule-based, from your own numbers">
+        <Panel
+          title="Where the upside is"
+          description="Rule-based, from your own numbers"
+          actions={
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={syncInsights}
+              disabled={sync.isPending || d.insights.length === 0}
+            >
+              {sync.isPending ? "Syncing…" : "Add to plan"}
+            </Button>
+          }
+        >
           <ul className="space-y-3">
             {d.insights.length === 0 && (
               <li className="text-sm text-muted-foreground">
                 Add leads, customers and revenue to unlock recommendations.
               </li>
             )}
-            {d.insights.slice(0, 5).map((i: any, idx: number) => (
-              <li key={idx} className="rounded-lg border border-border px-3 py-2.5">
-                <div className="text-[11px] tracking-[0.08em] text-muted-foreground uppercase">
-                  {i.module}
+            {d.insights.slice(0, 6).map((i: any) => (
+              <li key={i.key} className="rounded-lg border border-border px-3 py-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-[11px] tracking-[0.08em] text-muted-foreground uppercase">
+                    {i.module}
+                  </div>
+                  <span className="num rounded bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary">
+                    {i.impact}
+                  </span>
                 </div>
                 <div className="mt-0.5 text-sm font-medium">{i.title}</div>
                 <div className="mt-0.5 text-[13px] text-muted-foreground">{i.detail}</div>
+                <div className="mt-1.5 text-[12px] text-muted-foreground">
+                  <span className="num">{i.current}</span> → <span className="num">{i.target}</span>
+                </div>
               </li>
             ))}
           </ul>

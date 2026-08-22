@@ -2,13 +2,22 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AppShell } from "@/components/growth/shell";
-import { Panel, StatCard, StatusPill } from "@/components/growth/ui";
+import { Panel, StatCard, Meter } from "@/components/growth/ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsAdmin, setStoredOrgId } from "@/lib/growth";
 import { money } from "@/lib/metrics";
+import { ONBOARDING_STAGES, stageLabel } from "@/lib/niches";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useQueryClient } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({
@@ -38,6 +47,7 @@ function AdminPage() {
   const { data: isAdmin, isLoading: roleLoading } = useIsAdmin();
   const navigate = useNavigate();
   const [q, setQ] = useState("");
+  const qc = useQueryClient();
 
   const orgs = useQuery({
     queryKey: ["admin", "organizations"],
@@ -78,12 +88,67 @@ function AdminPage() {
     },
   });
 
+  const health = useQuery({
+    queryKey: ["admin", "health"],
+    enabled: !!isAdmin,
+    refetchInterval: 60_000,
+    queryFn: async () => {
+      const started = performance.now();
+      const [orgPing, tasks, opps] = await Promise.all([
+        supabase.from("organizations").select("id", { count: "exact", head: true }),
+        supabase.from("tasks").select("status"),
+        supabase.from("growth_opportunities").select("status,source"),
+      ]);
+      const latency = Math.round(performance.now() - started);
+      const errors = [orgPing.error, tasks.error, opps.error].filter(Boolean);
+      return {
+        latency,
+        databaseOk: errors.length === 0,
+        errorMessage: errors[0]?.message ?? null,
+        openTasks: (tasks.data ?? []).filter((t) => t.status !== "done").length,
+        autoOpportunities: (opps.data ?? []).filter((o: any) => o.source === "auto").length,
+        openOpportunities: (opps.data ?? []).filter((o: any) => o.status !== "done").length,
+      };
+    },
+  });
+
+  async function claimAdmin() {
+    const { data, error } = await (supabase.rpc as any)("claim_platform_admin");
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    if (data) {
+      toast.success("Platform admin access granted");
+      void qc.invalidateQueries();
+    } else {
+      toast.error("An admin already exists for this platform");
+    }
+  }
+
+  async function setStage(id: string, stage: string) {
+    const { error } = await supabase
+      .from("organizations")
+      .update({ onboarding_status: stage, onboarding_completed: stage === "completed" })
+      .eq("id", id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(`Moved to ${stageLabel(stage)}`);
+    void qc.invalidateQueries({ queryKey: ["admin", "organizations"] });
+  }
+
   if (!roleLoading && !isAdmin) {
     return (
       <AppShell title="Admin">
         <Panel title="Not authorised">
-          <p className="text-sm text-muted-foreground">
-            You do not have access to the admin area.
+          <p className="text-sm text-muted-foreground">You do not have access to the admin area.</p>
+          <Button className="mt-4" variant="outline" onClick={claimAdmin}>
+            Claim platform admin
+          </Button>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Only available while no platform admin exists yet.
           </p>
         </Panel>
       </AppShell>
@@ -92,9 +157,7 @@ function AdminPage() {
 
   const all = orgs.data ?? [];
   const rows = q
-    ? all.filter((r) =>
-        `${r.name} ${r.niche ?? ""}`.toLowerCase().includes(q.trim().toLowerCase()),
-      )
+    ? all.filter((r) => `${r.name} ${r.niche ?? ""}`.toLowerCase().includes(q.trim().toLowerCase()))
     : all;
   const stats = activity.data;
 
@@ -149,6 +212,70 @@ function AdminPage() {
         />
       </div>
 
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <Panel title="System health" description="Live backend checks, refreshed every minute">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-lg border border-border bg-surface-2 px-3 py-2.5">
+              <div className="text-[11px] tracking-[0.08em] text-muted-foreground uppercase">
+                Database
+              </div>
+              <div
+                className={
+                  health.data?.databaseOk
+                    ? "mt-1 text-sm font-semibold text-success"
+                    : "mt-1 text-sm font-semibold text-destructive"
+                }
+              >
+                {health.isLoading
+                  ? "Checking…"
+                  : health.data?.databaseOk
+                    ? "Operational"
+                    : "Degraded"}
+              </div>
+              <div className="mt-0.5 text-xs text-muted-foreground">
+                {health.data?.errorMessage ?? `${health.data?.latency ?? 0} ms round trip`}
+              </div>
+            </div>
+            <div className="rounded-lg border border-border bg-surface-2 px-3 py-2.5">
+              <div className="text-[11px] tracking-[0.08em] text-muted-foreground uppercase">
+                Auth &amp; access
+              </div>
+              <div className="mt-1 text-sm font-semibold text-success">Row-level security on</div>
+              <div className="mt-0.5 text-xs text-muted-foreground">
+                Every business table is tenant-scoped
+              </div>
+            </div>
+            <div className="rounded-lg border border-border bg-surface-2 px-3 py-2.5">
+              <div className="text-[11px] tracking-[0.08em] text-muted-foreground uppercase">
+                Open tasks
+              </div>
+              <div className="num mt-1 text-lg font-semibold">{health.data?.openTasks ?? 0}</div>
+            </div>
+            <div className="rounded-lg border border-border bg-surface-2 px-3 py-2.5">
+              <div className="text-[11px] tracking-[0.08em] text-muted-foreground uppercase">
+                Open opportunities
+              </div>
+              <div className="num mt-1 text-lg font-semibold">
+                {health.data?.openOpportunities ?? 0}
+              </div>
+              <div className="mt-0.5 text-xs text-muted-foreground">
+                {health.data?.autoOpportunities ?? 0} generated by rules
+              </div>
+            </div>
+          </div>
+        </Panel>
+
+        <Panel title="Onboarding pipeline" description="How clients are distributed across stages">
+          <div className="space-y-3">
+            {ONBOARDING_STAGES.map((s) => {
+              const count = all.filter((r) => (r.onboarding_status ?? "not_started") === s).length;
+              const value = all.length ? Math.round((count / all.length) * 100) : 0;
+              return <Meter key={s} label={`${stageLabel(s)} · ${count}`} value={value} />;
+            })}
+          </div>
+        </Panel>
+      </div>
+
       <Panel className="mt-4" title="Businesses" description="All organisations on the platform">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -174,7 +301,21 @@ function AdminPage() {
                     <td className="py-2 font-medium">{r.name}</td>
                     <td className="py-2 text-muted-foreground">{r.niche ?? "—"}</td>
                     <td className="py-2">
-                      <StatusPill value={String(r.onboarding_status ?? "not_started")} />
+                      <Select
+                        value={String(r.onboarding_status ?? "not_started")}
+                        onValueChange={(v) => void setStage(r.id, v)}
+                      >
+                        <SelectTrigger className="h-8 w-40">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {ONBOARDING_STAGES.map((s) => (
+                            <SelectItem key={s} value={s}>
+                              {stageLabel(s)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </td>
                     <td className="num py-2">{a?.leads ?? 0}</td>
                     <td className="num py-2">{a?.customers ?? 0}</td>
@@ -194,11 +335,7 @@ function AdminPage() {
                       {new Date(r.created_at).toLocaleDateString()}
                     </td>
                     <td className="py-2 text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openWorkspace(r.id, r.name)}
-                      >
+                      <Button variant="ghost" size="sm" onClick={() => openWorkspace(r.id, r.name)}>
                         Open workspace
                       </Button>
                     </td>

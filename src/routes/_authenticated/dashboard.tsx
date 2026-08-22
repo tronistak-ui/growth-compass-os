@@ -15,7 +15,14 @@ import {
 } from "recharts";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { AppShell } from "@/components/growth/shell";
-import { Panel, StatCard, EmptyState, LoadingRows, ScoreDial } from "@/components/growth/ui";
+import {
+  Panel,
+  StatCard,
+  EmptyState,
+  LoadingRows,
+  ScoreDial,
+  StageTracker,
+} from "@/components/growth/ui";
 import { useOrgData } from "@/lib/use-org-data";
 import { money, pct, monthlySeries } from "@/lib/metrics";
 import { lexicon } from "@/lib/niches";
@@ -92,6 +99,13 @@ function Dashboard() {
         <LoadingRows rows={6} />
       ) : (
         <div className="space-y-6">
+          <Panel
+            title="Growth OS rollout"
+            description="Where this business is in the onboarding journey"
+          >
+            <StageTracker stage={String(d.org?.["onboarding_status"] ?? "not_started")} />
+          </Panel>
+
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             <StatCard label={lex.leads} value={m.totalLeads} hint={`${m.qualifiedLeads} qualified`} />
             <StatCard
