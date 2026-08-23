@@ -20,10 +20,15 @@ import {
   Menu,
   Building2,
   ShieldCheck,
+  Sun,
+  Moon,
+  Bell,
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { useActiveOrg, useIsAdmin, useProfile, setStoredOrgId } from "@/lib/growth";
+import { useActiveOrg, useIsAdmin, useProfile, setStoredOrgId, signOut as signOutSession } from "@/lib/growth";
+import { useNotifications, useMarkNotificationRead } from "@/lib/health";
+import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
+import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -50,6 +55,51 @@ const NAV = [
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 
+/** Platform_admin/support only see rows here — same audience the fan-out writes to. */
+function NotificationsBell() {
+  const { data: notifications } = useNotifications();
+  const markRead = useMarkNotificationRead();
+  const unread = (notifications ?? []).filter((n) => !n.read_at);
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="relative">
+          <Bell className="size-4" />
+          {unread.length > 0 && (
+            <span className="absolute top-1 right-1 grid size-4 place-items-center rounded-full bg-destructive text-[10px] font-medium text-destructive-foreground">
+              {unread.length > 9 ? "9+" : unread.length}
+            </span>
+          )}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-80">
+        <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {!notifications || notifications.length === 0 ? (
+          <div className="px-2 py-6 text-center text-xs text-muted-foreground">All caught up</div>
+        ) : (
+          <div className="max-h-80 overflow-y-auto">
+            {notifications.map((n) => (
+              <DropdownMenuItem
+                key={n.id}
+                className={cn("flex flex-col items-start gap-0.5 whitespace-normal", !n.read_at && "bg-primary/5")}
+                onClick={() => !n.read_at && markRead.mutate(n.id)}
+              >
+                <span className="text-xs font-medium text-ink">{n.title}</span>
+                {n.body && <span className="text-[11px] text-muted-foreground">{n.body}</span>}
+                <span className="text-[10px] text-muted-foreground/70">
+                  {formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}
+                </span>
+              </DropdownMenuItem>
+            ))}
+          </div>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 export function AppShell({
   title,
   subtitle,
@@ -65,6 +115,7 @@ export function AppShell({
   const { org, orgs } = useActiveOrg();
   const { data: profile } = useProfile();
   const { data: isAdmin } = useIsAdmin();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -72,7 +123,7 @@ export function AppShell({
   async function signOut() {
     await qc.cancelQueries();
     qc.clear();
-    await supabase.auth.signOut();
+    await signOutSession();
     navigate({ to: "/auth", replace: true });
   }
 
@@ -85,8 +136,8 @@ export function AppShell({
         )}
       >
         <div className="flex h-16 items-center gap-2.5 border-b border-sidebar-border px-5">
-          <div className="grid size-8 place-items-center rounded-lg bg-sidebar-primary font-display text-sm font-bold text-sidebar-primary-foreground">
-            TZ
+          <div className="grid size-8 place-items-center rounded-lg bg-sidebar-primary shadow-[0_0_0_1px_var(--sidebar-border)]">
+            <img src="/tz-mark.png" alt="" className="size-5 object-contain" />
           </div>
           <div className="leading-tight">
             <div className="font-display text-sm font-semibold text-sidebar-accent-foreground">
@@ -107,12 +158,15 @@ export function AppShell({
                 to={item.to}
                 onClick={() => setOpen(false)}
                 className={cn(
-                  "flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors",
+                  "relative flex items-center gap-2.5 rounded-lg py-2 pr-3 pl-3.5 text-[13px] font-medium transition-colors",
                   active
                     ? "bg-sidebar-accent text-sidebar-accent-foreground"
                     : "text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
                 )}
               >
+                {active && (
+                  <span className="absolute top-1/2 left-0 h-4 w-[3px] -translate-y-1/2 rounded-full bg-sidebar-primary" />
+                )}
                 <item.icon className="size-4 shrink-0" />
                 {item.label}
               </Link>
@@ -123,7 +177,7 @@ export function AppShell({
               to="/admin"
               onClick={() => setOpen(false)}
               className={cn(
-                "mt-2 flex items-center gap-2.5 rounded-lg border border-sidebar-border px-3 py-2 text-[13px] font-medium",
+                "mt-2 flex items-center gap-2.5 rounded-lg border border-sidebar-border px-3 py-2 text-[13px] font-medium transition-colors",
                 pathname === "/admin"
                   ? "bg-sidebar-accent text-sidebar-accent-foreground"
                   : "text-sidebar-foreground/75 hover:bg-sidebar-accent/60",
@@ -162,6 +216,18 @@ export function AppShell({
 
           <div className="flex items-center gap-2">
             {actions}
+
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleTheme}
+              aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            >
+              {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
+            </Button>
+
+            <NotificationsBell />
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-2">
@@ -193,7 +259,7 @@ export function AppShell({
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="grid size-9 place-items-center rounded-full bg-primary/10 font-display text-xs font-semibold text-primary">
+                <button className="grid size-9 place-items-center rounded-full bg-primary/10 font-display text-xs font-semibold text-primary ring-1 ring-primary/15 transition-shadow hover:ring-primary/30">
                   {(profile?.["full_name"] || profile?.["email"] || "U")
                     .toString()
                     .slice(0, 2)

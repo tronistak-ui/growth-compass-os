@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ONBOARDING_STAGES, STAGE_META, stageLabel } from "@/lib/niches";
@@ -11,7 +11,7 @@ export function Panel({
   children,
   className,
 }: {
-  title?: string | undefined;
+  title?: ReactNode | undefined;
   description?: string | undefined;
   actions?: ReactNode | undefined;
   children: ReactNode;
@@ -39,17 +39,26 @@ export function StatCard({
   hint,
   trend,
   tone = "default",
+  icon: Icon,
 }: {
   label: string;
   value: string | number;
   hint?: string | undefined;
   trend?: number | undefined;
   tone?: "default" | "positive" | "negative" | undefined;
+  icon?: LucideIcon | undefined;
 }) {
   return (
-    <div className="panel px-4 py-3.5">
-      <div className="text-[11px] font-medium tracking-[0.08em] text-muted-foreground uppercase">
-        {label}
+    <div className="panel px-4 py-3.5 transition-shadow hover:shadow-raised">
+      <div className="flex items-start justify-between gap-2">
+        <div className="text-[11px] font-medium tracking-[0.08em] text-muted-foreground uppercase">
+          {label}
+        </div>
+        {Icon && (
+          <div className="grid size-7 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+            <Icon className="size-3.5" />
+          </div>
+        )}
       </div>
       <div
         className={cn(
@@ -65,12 +74,12 @@ export function StatCard({
         {typeof trend === "number" && (
           <span
             className={cn(
-              "num rounded px-1.5 py-0.5 font-medium",
+              "num flex items-center gap-0.5 rounded px-1.5 py-0.5 font-medium",
               trend >= 0 ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive",
             )}
           >
-            {trend >= 0 ? "+" : ""}
-            {trend.toFixed(1)}%
+            {trend >= 0 ? "↑" : "↓"}
+            {Math.abs(trend).toFixed(1)}%
           </span>
         )}
         {hint}

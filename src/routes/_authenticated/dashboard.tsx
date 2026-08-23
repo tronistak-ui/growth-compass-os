@@ -13,7 +13,20 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { ArrowRight, Sparkles } from "lucide-react";
+import {
+  ArrowRight,
+  Sparkles,
+  Users,
+  UserPlus,
+  Percent,
+  DollarSign,
+  TrendingUp,
+  Receipt,
+  Tag,
+  Repeat,
+  Clock,
+  UserX,
+} from "lucide-react";
 import { AppShell } from "@/components/growth/shell";
 import {
   Panel,
@@ -117,29 +130,38 @@ function Dashboard() {
               label={lex.leads}
               value={m.totalLeads}
               hint={`${m.qualifiedLeads} qualified`}
+              icon={Users}
             />
             <StatCard
               label={`New ${lex.customers.toLowerCase()}`}
               value={m.newCustomersThisMonth}
               hint={`${m.totalCustomers} total`}
+              icon={UserPlus}
             />
-            <StatCard label="Conversion rate" value={pct(m.conversionRate)} hint="leads → won" />
+            <StatCard
+              label="Conversion rate"
+              value={pct(m.conversionRate)}
+              hint="leads → won"
+              icon={Percent}
+            />
             <StatCard
               label="Revenue (MTD)"
               value={money(m.revenueThisMonth, cur)}
               trend={m.revenueGrowth}
+              icon={DollarSign}
             />
             <StatCard
               label="Profit (MTD)"
               value={money(m.profit, cur)}
               hint={`${pct(m.margin)} margin`}
               tone={m.profit >= 0 ? "positive" : "negative"}
+              icon={TrendingUp}
             />
-            <StatCard label="Expenses (MTD)" value={money(m.expensesThisMonth, cur)} />
-            <StatCard label="Average order value" value={money(m.aov, cur)} />
-            <StatCard label="Repeat customer rate" value={pct(m.repeatRate, 0)} />
-            <StatCard label="Follow-ups due" value={m.followUpsDue} />
-            <StatCard label="Lost leads" value={m.lostLeads} />
+            <StatCard label="Expenses (MTD)" value={money(m.expensesThisMonth, cur)} icon={Receipt} />
+            <StatCard label="Average order value" value={money(m.aov, cur)} icon={Tag} />
+            <StatCard label="Repeat customer rate" value={pct(m.repeatRate, 0)} icon={Repeat} />
+            <StatCard label="Follow-ups due" value={m.followUpsDue} icon={Clock} />
+            <StatCard label="Lost leads" value={m.lostLeads} icon={UserX} />
           </div>
 
           <div className="grid gap-4 lg:grid-cols-3">

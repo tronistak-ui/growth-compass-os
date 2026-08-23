@@ -157,23 +157,26 @@ export function CrudPanel({
         <div className="-mx-5 overflow-x-auto">
           <table className="w-full min-w-[640px] text-sm">
             <thead>
-              <tr className="border-b border-border text-left">
+              <tr className="border-b border-border bg-surface-2/60 text-left">
                 {cols.map((f) => (
                   <th
                     key={f.name}
-                    className="px-5 py-2 text-[11px] font-medium tracking-wider text-muted-foreground uppercase"
+                    className="px-5 py-2.5 text-[11px] font-medium tracking-wider text-muted-foreground uppercase"
                   >
                     {f.label}
                   </th>
                 ))}
-                <th className="w-20 px-5 py-2" />
+                <th className="w-20 px-5 py-2.5" />
               </tr>
             </thead>
             <tbody>
               {filtered.map((row) => (
-                <tr key={row["id"]} className="border-b border-border/60 last:border-0">
+                <tr
+                  key={row["id"]}
+                  className="group border-b border-border/60 transition-colors last:border-0 hover:bg-surface-2/50"
+                >
                   {cols.map((f) => (
-                    <td key={f.name} className="px-5 py-2.5 align-top">
+                    <td key={f.name} className="px-5 py-3 align-top">
                       {f.render ? (
                         f.render(row)
                       ) : f.name.includes("status") ||
@@ -191,15 +194,20 @@ export function CrudPanel({
                       )}
                     </td>
                   ))}
-                  <td className="px-5 py-2.5 text-right whitespace-nowrap">
-                    <Button variant="ghost" size="icon" onClick={() => setEditing(row)}>
+                  <td className="px-5 py-3 text-right whitespace-nowrap">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 hover:text-ink"
+                      onClick={() => setEditing(row)}
+                    >
                       <Pencil className="size-4" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
                       onClick={() => setDeleteId(row["id"])}
-                      className="text-destructive"
+                      className="text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 hover:text-destructive"
                     >
                       <Trash2 className="size-4" />
                     </Button>
