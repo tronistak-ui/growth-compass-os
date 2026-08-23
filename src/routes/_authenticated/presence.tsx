@@ -6,12 +6,15 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/growth/shell";
 import { Panel, ScoreDial, Meter } from "@/components/growth/ui";
 import { useActiveOrg, useSingletonRow, useUpsertSingleton } from "@/lib/growth";
-import { supabase } from "@/integrations/supabase/client";
+import { getSocialConnection, startOAuth, disconnectSocialConnection } from "@/server/functions/oauth";
+import { syncPresenceConnection } from "@/server/functions/presence-sync";
 import { presenceScore } from "@/lib/metrics";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/utils";
+import { formatDistanceToNow } from "date-fns";
 
 export const Route = createFileRoute("/_authenticated/presence")({
   head: () => ({
@@ -32,47 +35,82 @@ export const Route = createFileRoute("/_authenticated/presence")({
   component: PresencePage,
 });
 
-const TOGGLES: Record<string, [string, string][]> = {
-  Website: [
-    ["website_mobile_ready", "Mobile friendly"],
-    ["website_has_cta", "Clear call to action"],
-    ["website_has_contact", "Contact details visible"],
-  ],
-  "Google Business Profile": [
-    ["google_profile_claimed", "Profile claimed"],
-    ["google_website_linked", "Website linked"],
-  ],
-  Instagram: [
-    ["instagram_has_cta", "Bio has a call to action"],
-    ["instagram_link", "Link in bio"],
-    ["instagram_contact", "Contact button set"],
-  ],
-  WhatsApp: [
-    ["whatsapp_business", "WhatsApp Business account"],
-    ["whatsapp_cta", "Greeting / CTA message"],
-    ["whatsapp_catalogue", "Catalogue set up"],
-  ],
-  Consistency: [
-    ["consistent_name", "Same business name everywhere"],
-    ["consistent_phone", "Same phone number"],
-    ["consistent_address", "Same address"],
-    ["consistent_website", "Same website link"],
-    ["consistent_description", "Same description"],
-  ],
+type FieldDef = { key: string; label: string; type?: "text" | "number"; synced?: boolean };
+type ToggleDef = { key: string; label: string; synced?: boolean };
+type OAuthProvider = "google_business" | "instagram";
+
+type ChannelDef = {
+  title: string;
+  texts: FieldDef[];
+  toggles: ToggleDef[];
+  /** Present only for OAuth-connectable channels. */
+  oauth?: { provider: OAuthProvider; connectLabel: string };
 };
 
-const TEXTS: [string, string, string?][] = [
-  ["website_url", "Website URL"],
-  ["google_category", "Google category"],
-  ["google_address", "Google address"],
-  ["google_phone", "Google phone"],
-  ["google_hours", "Opening hours"],
-  ["google_reviews", "Review count", "number"],
-  ["google_rating", "Average rating", "number"],
-  ["instagram_url", "Instagram URL"],
-  ["instagram_bio", "Instagram bio"],
-  ["instagram_followers", "Instagram followers", "number"],
-  ["whatsapp_number", "WhatsApp number"],
+// Which fields each provider's sync actually writes — see
+// server/oauth/presence-sync.server.ts. Everything else in a connected
+// channel stays manually editable even when connected.
+const CHANNELS: ChannelDef[] = [
+  {
+    title: "Website",
+    texts: [{ key: "website_url", label: "Website URL" }],
+    toggles: [
+      { key: "website_mobile_ready", label: "Mobile friendly" },
+      { key: "website_has_cta", label: "Clear call to action" },
+      { key: "website_has_contact", label: "Contact details visible" },
+    ],
+  },
+  {
+    title: "Google Business Profile",
+    oauth: { provider: "google_business", connectLabel: "Google Business Profile" },
+    texts: [
+      { key: "google_category", label: "Google category", synced: true },
+      { key: "google_address", label: "Google address", synced: true },
+      { key: "google_phone", label: "Google phone", synced: true },
+      { key: "google_hours", label: "Opening hours", synced: true },
+      { key: "google_reviews", label: "Review count", type: "number", synced: true },
+      { key: "google_rating", label: "Average rating", type: "number", synced: true },
+    ],
+    toggles: [
+      { key: "google_profile_claimed", label: "Profile claimed", synced: true },
+      { key: "google_website_linked", label: "Website linked", synced: true },
+    ],
+  },
+  {
+    title: "Instagram",
+    oauth: { provider: "instagram", connectLabel: "Instagram" },
+    texts: [
+      { key: "instagram_url", label: "Instagram URL", synced: true },
+      { key: "instagram_bio", label: "Instagram bio", synced: true },
+      { key: "instagram_followers", label: "Instagram followers", type: "number", synced: true },
+    ],
+    toggles: [
+      // Not exposed by the Instagram API — stay manually editable even when connected.
+      { key: "instagram_has_cta", label: "Bio has a call to action" },
+      { key: "instagram_link", label: "Link in bio", synced: true },
+      { key: "instagram_contact", label: "Contact button set" },
+    ],
+  },
+  {
+    title: "WhatsApp",
+    texts: [{ key: "whatsapp_number", label: "WhatsApp number" }],
+    toggles: [
+      { key: "whatsapp_business", label: "WhatsApp Business account" },
+      { key: "whatsapp_cta", label: "Greeting / CTA message" },
+      { key: "whatsapp_catalogue", label: "Catalogue set up" },
+    ],
+  },
+  {
+    title: "Consistency",
+    texts: [],
+    toggles: [
+      { key: "consistent_name", label: "Same business name everywhere" },
+      { key: "consistent_phone", label: "Same phone number" },
+      { key: "consistent_address", label: "Same address" },
+      { key: "consistent_website", label: "Same website link" },
+      { key: "consistent_description", label: "Same description" },
+    ],
+  },
 ];
 
 type ConnectionData =
@@ -86,64 +124,36 @@ type ConnectionData =
   | null
   | undefined;
 
-/** One row in the temporary test panel: a connect button, status line, and
- * (once connected) a sync button. `statusOf` is the row shown as connected/
- * error/name; `syncTarget` is the connection whose id actually gets synced —
- * for Meta these differ (facebook proves the OAuth handshake worked,
- * instagram is what sync-presence writes into presence_profiles). */
-function ConnectionRow({
-  label,
-  provider,
-  statusOf,
-  syncTarget,
-  connecting,
-  syncing,
-  onConnect,
-  onSync,
-}: {
-  label: string;
-  provider: "google_business" | "facebook";
-  statusOf: ConnectionData;
-  syncTarget: ConnectionData;
-  connecting: boolean;
-  syncing: boolean;
-  onConnect: (provider: "google_business" | "facebook") => void;
-  onSync: (connectionId: string, label: string) => void;
-}) {
+function StatusPill({ connection }: { connection: ConnectionData }) {
+  if (!connection) {
+    return (
+      <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+        Not connected · entered manually
+      </span>
+    );
+  }
+  if (connection.status === "error") {
+    return (
+      <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[11px] font-medium text-destructive">
+        Error — tap Reconnect
+      </span>
+    );
+  }
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      <Button size="sm" onClick={() => onConnect(provider)} disabled={connecting}>
-        {connecting ? "Redirecting…" : statusOf ? `Reconnect ${label}` : `Connect ${label}`}
-      </Button>
-      {statusOf && (
-        <span className="text-xs text-muted-foreground">
-          Status: <span className="font-medium text-ink">{statusOf.status}</span>
-          {statusOf.external_account_name ? ` · ${statusOf.external_account_name}` : ""}
-        </span>
-      )}
-      {syncTarget && (
-        <>
-          <span className="text-xs text-muted-foreground">
-            {syncTarget.last_synced_at
-              ? `synced ${new Date(syncTarget.last_synced_at).toLocaleString()}`
-              : "never synced"}
-          </span>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => onSync(syncTarget.id, label)}
-            disabled={syncing}
-          >
-            {syncing ? "Syncing…" : "Sync now"}
-          </Button>
-        </>
-      )}
-      {(syncTarget?.last_error ?? statusOf?.last_error) && (
-        <span className="text-xs text-destructive">
-          {syncTarget?.last_error ?? statusOf?.last_error}
-        </span>
-      )}
-    </div>
+    <span className="rounded-full bg-success/10 px-2 py-0.5 text-[11px] font-medium text-success">
+      Connected
+      {connection.last_synced_at
+        ? ` · synced ${formatDistanceToNow(new Date(connection.last_synced_at), { addSuffix: true })}`
+        : " · never synced"}
+    </span>
+  );
+}
+
+function SyncedBadge() {
+  return (
+    <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium tracking-wide text-primary uppercase">
+      Synced
+    </span>
   );
 }
 
@@ -152,17 +162,130 @@ function useSocialConnection(orgId: string | undefined, provider: string) {
   return useQuery({
     queryKey: ["social-connections", orgId, provider],
     enabled: !!orgId,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("social_connections_public")
-        .select("*")
-        .eq("organization_id", orgId!)
-        .eq("provider", provider)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
-    },
+    queryFn: () => getSocialConnection({ data: { orgId: orgId!, provider } }),
   });
+}
+
+function ChannelCard({
+  channel,
+  form,
+  set,
+  connection,
+  connecting,
+  syncing,
+  disconnecting,
+  onConnect,
+  onSync,
+  onDisconnect,
+}: {
+  channel: ChannelDef;
+  form: Record<string, any>;
+  set: (k: string, v: any) => void;
+  connection: ConnectionData;
+  connecting: boolean;
+  syncing: boolean;
+  disconnecting: boolean;
+  onConnect: (provider: OAuthProvider) => void;
+  onSync: (connectionId: string, label: string) => void;
+  onDisconnect: (provider: OAuthProvider, label: string) => void;
+}) {
+  const isConnected = connection?.status === "connected" || connection?.status === "error";
+
+  return (
+    <Panel
+      title={
+        <div className="flex flex-wrap items-center gap-2">
+          <span>{channel.title}</span>
+          {channel.oauth && <StatusPill connection={connection} />}
+        </div>
+      }
+      actions={
+        channel.oauth ? (
+          <div className="flex flex-wrap items-center gap-2">
+            {isConnected && connection && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onSync(connection.id, channel.oauth!.connectLabel)}
+                disabled={syncing}
+              >
+                {syncing ? "Syncing…" : "Sync now"}
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant={isConnected ? "outline" : "default"}
+              onClick={() => onConnect(channel.oauth!.provider)}
+              disabled={connecting}
+            >
+              {connecting ? "Redirecting…" : isConnected ? "Reconnect" : "Connect"}
+            </Button>
+            {isConnected && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-destructive hover:text-destructive"
+                onClick={() => onDisconnect(channel.oauth!.provider, channel.oauth!.connectLabel)}
+                disabled={disconnecting}
+              >
+                {disconnecting ? "Disconnecting…" : "Disconnect"}
+              </Button>
+            )}
+          </div>
+        ) : undefined
+      }
+    >
+      {connection?.last_error && (
+        <p className="mb-3 text-xs text-destructive">{connection.last_error}</p>
+      )}
+
+      {channel.texts.length > 0 && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {channel.texts.map((f) => {
+            const readOnly = !!(f.synced && isConnected);
+            return (
+              <div key={f.key} className="space-y-1.5">
+                <Label className="flex items-center gap-1.5">
+                  {f.label}
+                  {readOnly && <SyncedBadge />}
+                </Label>
+                <Input
+                  type={f.type ?? "text"}
+                  value={form[f.key] ?? ""}
+                  disabled={readOnly}
+                  onChange={(e) => set(f.key, f.type === "number" ? Number(e.target.value) : e.target.value)}
+                />
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {channel.toggles.length > 0 && (
+        <div className={cn("grid gap-2 sm:grid-cols-2", channel.texts.length > 0 && "mt-4")}>
+          {channel.toggles.map((t) => {
+            const readOnly = !!(t.synced && isConnected);
+            return (
+              <label
+                key={t.key}
+                className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-sm"
+              >
+                <span className="flex items-center gap-1.5 text-foreground/90">
+                  {t.label}
+                  {readOnly && <SyncedBadge />}
+                </span>
+                <Switch
+                  checked={Boolean(form[t.key])}
+                  disabled={readOnly}
+                  onCheckedChange={(v) => set(t.key, v)}
+                />
+              </label>
+            );
+          })}
+        </div>
+      )}
+    </Panel>
+  );
 }
 
 function PresencePage() {
@@ -172,19 +295,17 @@ function PresencePage() {
   const [form, setForm] = useState<Record<string, any>>({});
   const [connecting, setConnecting] = useState<string | null>(null);
   const [syncing, setSyncing] = useState<string | null>(null);
+  const [disconnecting, setDisconnecting] = useState<string | null>(null);
   const qc = useQueryClient();
 
   const googleConnection = useSocialConnection(orgId, "google_business");
-  const facebookConnection = useSocialConnection(orgId, "facebook");
   const instagramConnection = useSocialConnection(orgId, "instagram");
 
   useEffect(() => {
     if (data) setForm(data);
   }, [data]);
 
-  // TEMPORARY: reads the redirect-back params from oauth-callback so we can
-  // verify the connect flow end-to-end before building the real §7 UI
-  // (status pills, per-channel cards, etc). Remove once that lands.
+  // Reads the redirect-back params from oauth-callback (?connect_status=...).
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const status = params.get("connect_status");
@@ -211,14 +332,16 @@ function PresencePage() {
     });
   }
 
-  async function startConnect(provider: "google_business" | "facebook") {
+  function invalidateConnections() {
+    void qc.invalidateQueries({ queryKey: ["presence_profiles", "single", orgId] });
+    void qc.invalidateQueries({ queryKey: ["social-connections", orgId] });
+  }
+
+  async function startConnect(provider: OAuthProvider) {
     if (!orgId) return;
     setConnecting(provider);
     try {
-      const { data: res, error } = await supabase.functions.invoke("oauth-start", {
-        body: { provider, org_id: orgId },
-      });
-      if (error) throw error;
+      const res = await startOAuth({ data: { provider, orgId } });
       if (!res?.url) throw new Error("No authorize URL returned");
       window.location.href = res.url;
     } catch (e) {
@@ -227,31 +350,43 @@ function PresencePage() {
     }
   }
 
-  /** Syncs one connection row (identified by its own connection_id, which is
-   * always the `instagram` row for Meta — that's what actually writes into
-   * presence_profiles; the `facebook` row just holds the shared Page token). */
   async function syncNow(connectionId: string, label: string) {
     setSyncing(connectionId);
     try {
-      const { data: res, error } = await supabase.functions.invoke("sync-presence", {
-        body: { connection_id: connectionId },
-      });
-      if (error) throw error;
-      if (res?.skipped) {
+      const res = await syncPresenceConnection({ data: { connectionId } });
+      if (res.skipped) {
         toast.info(res.reason ?? "Synced too recently");
+      } else if (res.result?.ok === false) {
+        throw new Error(res.result.error ?? "Sync failed");
       } else {
-        const result = res?.results?.[0];
-        if (result?.ok === false) throw new Error(result.error ?? "Sync failed");
         toast.success(`Synced ${label}`);
       }
-      void qc.invalidateQueries({ queryKey: ["presence_profiles", "single", orgId] });
-      void qc.invalidateQueries({ queryKey: ["social-connections", orgId] });
+      invalidateConnections();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Sync failed");
     } finally {
       setSyncing(null);
     }
   }
+
+  async function disconnect(provider: OAuthProvider, label: string) {
+    if (!orgId) return;
+    setDisconnecting(provider);
+    try {
+      await disconnectSocialConnection({ data: { orgId, provider } });
+      toast.success(`Disconnected ${label}`);
+      invalidateConnections();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not disconnect");
+    } finally {
+      setDisconnecting(null);
+    }
+  }
+
+  const connectionFor: Record<OAuthProvider, ConnectionData> = {
+    google_business: googleConnection.data,
+    instagram: instagramConnection.data,
+  };
 
   return (
     <AppShell
@@ -263,35 +398,6 @@ function PresencePage() {
         </Button>
       }
     >
-      <Panel
-        className="mb-4"
-        title="Connect accounts (test)"
-        description="Temporary — verifying the OAuth + sync flow before the real Presence channel cards land"
-      >
-        <div className="space-y-3">
-          <ConnectionRow
-            label="Google Business Profile"
-            provider="google_business"
-            statusOf={googleConnection.data}
-            syncTarget={googleConnection.data}
-            connecting={connecting === "google_business"}
-            syncing={syncing === googleConnection.data?.id}
-            onConnect={startConnect}
-            onSync={syncNow}
-          />
-          <ConnectionRow
-            label="Facebook & Instagram"
-            provider="facebook"
-            statusOf={facebookConnection.data}
-            syncTarget={instagramConnection.data}
-            connecting={connecting === "facebook"}
-            syncing={syncing === instagramConnection.data?.id}
-            onConnect={startConnect}
-            onSync={syncNow}
-          />
-        </div>
-      </Panel>
-
       <div className="grid gap-4 lg:grid-cols-3">
         <Panel title="Presence score" description="Weighted across all channels">
           <ScoreDial score={score.total} label="Overall presence" />
@@ -304,37 +410,20 @@ function PresencePage() {
         </Panel>
 
         <div className="space-y-4 lg:col-span-2">
-          <Panel title="Channel details">
-            <div className="grid gap-3 sm:grid-cols-2">
-              {TEXTS.map(([key, label, type]) => (
-                <div key={key} className="space-y-1.5">
-                  <Label>{label}</Label>
-                  <Input
-                    type={type ?? "text"}
-                    value={form[key] ?? ""}
-                    onChange={(e) =>
-                      set(key, type === "number" ? Number(e.target.value) : e.target.value)
-                    }
-                  />
-                </div>
-              ))}
-            </div>
-          </Panel>
-
-          {Object.entries(TOGGLES).map(([group, items]) => (
-            <Panel key={group} title={group}>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {items.map(([key, label]) => (
-                  <label
-                    key={key}
-                    className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-sm"
-                  >
-                    <span className="text-foreground/90">{label}</span>
-                    <Switch checked={Boolean(form[key])} onCheckedChange={(v) => set(key, v)} />
-                  </label>
-                ))}
-              </div>
-            </Panel>
+          {CHANNELS.map((channel) => (
+            <ChannelCard
+              key={channel.title}
+              channel={channel}
+              form={form}
+              set={set}
+              connection={channel.oauth ? connectionFor[channel.oauth.provider] : undefined}
+              connecting={!!channel.oauth && connecting === channel.oauth.provider}
+              syncing={!!channel.oauth && syncing === connectionFor[channel.oauth.provider]?.id}
+              disconnecting={!!channel.oauth && disconnecting === channel.oauth.provider}
+              onConnect={startConnect}
+              onSync={syncNow}
+              onDisconnect={disconnect}
+            />
           ))}
         </div>
       </div>

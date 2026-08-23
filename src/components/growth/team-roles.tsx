@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { supabase } from "@/integrations/supabase/client";
+import { listTeamRoles, grantRole, revokeRole } from "@/server/functions/admin";
 import type { AppRole } from "@/lib/growth";
 
 type Member = { user_id: string; email: string | null; roles: AppRole[] };
@@ -26,29 +26,7 @@ export function TeamRolesPanel() {
 
   const members = useQuery({
     queryKey: ["admin", "team-roles"],
-    queryFn: async () => {
-      const { data: roles, error } = await supabase.from("user_roles").select("user_id,role");
-      if (error) throw error;
-      const userIds = [...new Set((roles ?? []).map((r) => r.user_id as string))];
-      if (userIds.length === 0) return [] as Member[];
-      const { data: profiles, error: profErr } = await supabase
-        .from("profiles")
-        .select("id,email")
-        .in("id", userIds);
-      if (profErr) throw profErr;
-      const emailById = new Map((profiles ?? []).map((p) => [p.id, p.email]));
-      const grouped = new Map<string, AppRole[]>();
-      for (const r of roles ?? []) {
-        const list = grouped.get(r.user_id) ?? [];
-        list.push(r.role as AppRole);
-        grouped.set(r.user_id, list);
-      }
-      return [...grouped.entries()].map(([user_id, rs]) => ({
-        user_id,
-        email: emailById.get(user_id) ?? null,
-        roles: rs,
-      })) as Member[];
-    },
+    queryFn: () => listTeamRoles() as Promise<Member[]>,
   });
 
   async function grant() {
@@ -58,18 +36,7 @@ export function TeamRolesPanel() {
     }
     setSaving(true);
     try {
-      const { data: profile, error: findErr } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("email", email.trim())
-        .maybeSingle();
-      if (findErr) throw findErr;
-      if (!profile) {
-        toast.error("No account found with that email — they need to sign up first");
-        return;
-      }
-      const { error } = await supabase.from("user_roles").insert({ user_id: profile.id, role });
-      if (error) throw error;
+      await grantRole({ data: { email: email.trim(), role: role as "support" | "auditor" | "platform_admin" } });
       toast.success(`Granted ${role.replace("_", " ")}`);
       setEmail("");
       void qc.invalidateQueries({ queryKey: ["admin", "team-roles"] });
@@ -81,17 +48,13 @@ export function TeamRolesPanel() {
   }
 
   async function revoke(userId: string, r: AppRole) {
-    const { error } = await supabase
-      .from("user_roles")
-      .delete()
-      .eq("user_id", userId)
-      .eq("role", r);
-    if (error) {
-      toast.error(error.message);
-      return;
+    try {
+      await revokeRole({ data: { userId, role: r } });
+      toast.success(`Removed ${r.replace("_", " ")}`);
+      void qc.invalidateQueries({ queryKey: ["admin", "team-roles"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not revoke role");
     }
-    toast.success(`Removed ${r.replace("_", " ")}`);
-    void qc.invalidateQueries({ queryKey: ["admin", "team-roles"] });
   }
 
   return (

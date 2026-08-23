@@ -1,32 +1,35 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import type { Session } from "@supabase/supabase-js";
+import { getCurrentUser, getMyRoles, signOut as signOutFn } from "@/server/functions/auth";
+import { listMyOrganizations } from "@/server/functions/organizations";
+import { listRows, getSingletonRow, saveRow, upsertSingleton, deleteRow } from "@/server/functions/rows";
 
 export type Row = Record<string, any>;
 
 const ACTIVE_ORG_KEY = "tz.activeOrg";
 
+export type SessionUser = {
+  id: string;
+  email: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+/** The signed-in user, from the session cookie — replaces Supabase's client-side session. */
 export function useSession() {
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+  const q = useQuery({
+    queryKey: ["session"],
+    queryFn: () => getCurrentUser(),
+    staleTime: 60_000,
+    retry: false,
+  });
+  return { user: (q.data ?? null) as SessionUser | null, loading: q.isLoading };
+}
 
-  useEffect(() => {
-    let mounted = true;
-    supabase.auth.getSession().then(({ data }) => {
-      if (!mounted) return;
-      setSession(data.session);
-      setLoading(false);
-    });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
-    return () => {
-      mounted = false;
-      sub.subscription.unsubscribe();
-    };
-  }, []);
-
-  return { session, user: session?.user ?? null, loading };
+export async function signOut() {
+  await signOutFn();
 }
 
 export type AppRole = "platform_admin" | "support" | "auditor" | "business_owner";
@@ -37,14 +40,7 @@ export function useRoles() {
   return useQuery({
     queryKey: ["roles", user?.id],
     enabled: !!user,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user!.id);
-      if (error) throw error;
-      return (data ?? []).map((r) => r.role as AppRole);
-    },
+    queryFn: () => getMyRoles() as Promise<AppRole[]>,
   });
 }
 
@@ -59,21 +55,10 @@ export function useHasRole(...roles: AppRole[]) {
   return { ...q, data: !!q.data?.some((r) => roles.includes(r)) };
 }
 
+/** users now merges what used to be the separate `profiles` table. */
 export function useProfile() {
-  const { user } = useSession();
-  return useQuery({
-    queryKey: ["profile", user?.id],
-    enabled: !!user,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user!.id)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
-    },
-  });
+  const { user, loading } = useSession();
+  return { data: user as Row | null, isLoading: loading };
 }
 
 export function useOrganizations() {
@@ -81,14 +66,7 @@ export function useOrganizations() {
   return useQuery({
     queryKey: ["organizations", user?.id],
     enabled: !!user,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("organizations")
-        .select("*")
-        .order("created_at", { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as Row[];
-    },
+    queryFn: () => listMyOrganizations() as Promise<Row[]>,
   });
 }
 
@@ -121,17 +99,10 @@ export function useRows(table: string, orgId?: string, opts: QueryOpts = {}) {
   return useQuery({
     queryKey: [table, orgId, opts],
     enabled: !!orgId,
-    queryFn: async () => {
-      let q = (supabase.from(table as any) as any)
-        .select(opts.select ?? "*")
-        .eq("organization_id", orgId);
-      for (const [col, val] of opts.filters ?? []) q = q.eq(col, val);
-      if (opts.order) q = q.order(opts.order.column, { ascending: opts.order.ascending ?? false });
-      if (opts.limit) q = q.limit(opts.limit);
-      const { data, error } = await q;
-      if (error) throw error;
-      return (data ?? []) as Row[];
-    },
+    queryFn: () =>
+      listRows({
+        data: { table, orgId: orgId!, order: opts.order, filters: opts.filters, limit: opts.limit },
+      }) as Promise<Row[]>,
   });
 }
 
@@ -140,14 +111,7 @@ export function useSingletonRow(table: string, orgId?: string) {
   return useQuery({
     queryKey: [table, "single", orgId],
     enabled: !!orgId,
-    queryFn: async () => {
-      const { data, error } = await (supabase.from(table as any) as any)
-        .select("*")
-        .eq("organization_id", orgId)
-        .maybeSingle();
-      if (error) throw error;
-      return (data ?? { organization_id: orgId }) as Row;
-    },
+    queryFn: () => getSingletonRow({ data: { table, orgId: orgId! } }) as Promise<Row>,
   });
 }
 
@@ -155,20 +119,7 @@ export function useSaveRow(table: string, orgId?: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (values: Row) => {
-      const payload: Row = { ...values, organization_id: orgId };
-      if (payload["id"]) {
-        const id = payload["id"];
-        delete payload["id"];
-        const { error } = await (supabase.from(table as any) as any)
-          .update(payload)
-          .eq("id", id)
-          .eq("organization_id", orgId);
-        if (error) throw error;
-      } else {
-        delete payload["id"];
-        const { error } = await (supabase.from(table as any) as any).insert(payload);
-        if (error) throw error;
-      }
+      return saveRow({ data: { table, orgId: orgId!, values } });
     },
     onSuccess: () => qc.invalidateQueries(),
   });
@@ -178,11 +129,7 @@ export function useUpsertSingleton(table: string, orgId?: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (values: Row) => {
-      const { error } = await (supabase.from(table as any) as any).upsert(
-        { ...values, organization_id: orgId },
-        { onConflict: "organization_id" },
-      );
-      if (error) throw error;
+      return upsertSingleton({ data: { table, orgId: orgId!, values } });
     },
     onSuccess: () => qc.invalidateQueries(),
   });
@@ -192,11 +139,7 @@ export function useDeleteRow(table: string, orgId?: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await (supabase.from(table as any) as any)
-        .delete()
-        .eq("id", id)
-        .eq("organization_id", orgId);
-      if (error) throw error;
+      return deleteRow({ data: { table, orgId: orgId!, id } });
     },
     onSuccess: () => qc.invalidateQueries(),
   });

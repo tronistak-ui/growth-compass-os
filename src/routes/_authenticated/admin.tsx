@@ -14,7 +14,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { listAllOrganizations, setOnboardingStage, saveOrgNotes } from "@/server/functions/organizations";
+import { getOrgActivity, getSystemHealthCheck, claimPlatformAdmin } from "@/server/functions/admin";
 import { useIsAdmin, useHasRole, setStoredOrgId } from "@/lib/growth";
 import { money } from "@/lib/metrics";
 import { ONBOARDING_STAGES, stageLabel } from "@/lib/niches";
@@ -67,41 +68,15 @@ function AdminPage() {
   const orgs = useQuery({
     queryKey: ["admin", "organizations"],
     enabled: !!canView,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("organizations")
-        .select(
-          "id,name,niche,currency,created_at,onboarding_status,onboarding_completed,internal_notes",
-        )
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as OrgRow[];
-    },
+    queryFn: () => listAllOrganizations() as Promise<OrgRow[]>,
   });
 
   const activity = useQuery({
     queryKey: ["admin", "activity"],
     enabled: !!canView,
     queryFn: async () => {
-      const [leads, customers, revenue] = await Promise.all([
-        supabase.from("leads").select("organization_id,status"),
-        supabase.from("customers").select("organization_id"),
-        supabase.from("revenue_transactions").select("organization_id,amount"),
-      ]);
-      if (leads.error) throw leads.error;
-      if (customers.error) throw customers.error;
-      if (revenue.error) throw revenue.error;
-      const map = new Map<string, { leads: number; customers: number; revenue: number }>();
-      const get = (id: string) => {
-        const cur = map.get(id) ?? { leads: 0, customers: 0, revenue: 0 };
-        map.set(id, cur);
-        return cur;
-      };
-      for (const l of leads.data ?? []) get(String(l.organization_id)).leads += 1;
-      for (const c of customers.data ?? []) get(String(c.organization_id)).customers += 1;
-      for (const r of revenue.data ?? [])
-        get(String(r.organization_id)).revenue += Number(r.amount ?? 0);
-      return map;
+      const byOrg = await getOrgActivity();
+      return new Map(Object.entries(byOrg));
     },
   });
 
@@ -109,51 +84,31 @@ function AdminPage() {
     queryKey: ["admin", "health"],
     enabled: !!canView,
     refetchInterval: 60_000,
-    queryFn: async () => {
-      const started = performance.now();
-      const [orgPing, tasks, opps] = await Promise.all([
-        supabase.from("organizations").select("id", { count: "exact", head: true }),
-        supabase.from("tasks").select("status"),
-        supabase.from("growth_opportunities").select("status,source"),
-      ]);
-      const latency = Math.round(performance.now() - started);
-      const errors = [orgPing.error, tasks.error, opps.error].filter(Boolean);
-      return {
-        latency,
-        databaseOk: errors.length === 0,
-        errorMessage: errors[0]?.message ?? null,
-        openTasks: (tasks.data ?? []).filter((t) => t.status !== "done").length,
-        autoOpportunities: (opps.data ?? []).filter((o: any) => o.source === "auto").length,
-        openOpportunities: (opps.data ?? []).filter((o: any) => o.status !== "done").length,
-      };
-    },
+    queryFn: () => getSystemHealthCheck(),
   });
 
   async function claimAdmin() {
-    const { data, error } = await (supabase.rpc as any)("claim_platform_admin");
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-    if (data) {
-      toast.success("Platform admin access granted");
-      void qc.invalidateQueries();
-    } else {
-      toast.error("An admin already exists for this platform");
+    try {
+      const granted = await claimPlatformAdmin();
+      if (granted) {
+        toast.success("Platform admin access granted");
+        void qc.invalidateQueries();
+      } else {
+        toast.error("An admin already exists for this platform");
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not claim admin access");
     }
   }
 
   async function setStage(id: string, stage: string) {
-    const { error } = await supabase
-      .from("organizations")
-      .update({ onboarding_status: stage, onboarding_completed: stage === "completed" })
-      .eq("id", id);
-    if (error) {
-      toast.error(error.message);
-      return;
+    try {
+      await setOnboardingStage({ data: { id, stage } });
+      toast.success(`Moved to ${stageLabel(stage)}`);
+      void qc.invalidateQueries({ queryKey: ["admin", "organizations"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not save");
     }
-    toast.success(`Moved to ${stageLabel(stage)}`);
-    void qc.invalidateQueries({ queryKey: ["admin", "organizations"] });
   }
 
   if (!roleLoading && !viewRoleLoading && !canView) {
@@ -201,18 +156,16 @@ function AdminPage() {
   async function saveNotes() {
     if (!notesFor) return;
     setSavingNotes(true);
-    const { error } = await supabase
-      .from("organizations")
-      .update({ internal_notes: notesDraft.trim() || null })
-      .eq("id", notesFor.id);
-    setSavingNotes(false);
-    if (error) {
-      toast.error(error.message);
-      return;
+    try {
+      await saveOrgNotes({ data: { id: notesFor.id, notes: notesDraft.trim() || null } });
+      toast.success("Notes saved");
+      setNotesFor(null);
+      void qc.invalidateQueries({ queryKey: ["admin", "organizations"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not save");
+    } finally {
+      setSavingNotes(false);
     }
-    toast.success("Notes saved");
-    setNotesFor(null);
-    void qc.invalidateQueries({ queryKey: ["admin", "organizations"] });
   }
 
   const totalRevenueTracked = [...(stats?.values() ?? [])].reduce((sum, a) => sum + a.revenue, 0);

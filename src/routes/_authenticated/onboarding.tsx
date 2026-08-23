@@ -3,7 +3,8 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { getCurrentUser } from "@/server/functions/auth";
+import { createOrganization } from "@/server/functions/organizations";
 import { setStoredOrgId } from "@/lib/growth";
 import { NICHES, BUSINESS_GOALS, CHANNELS } from "@/lib/niches";
 import { Button } from "@/components/ui/button";
@@ -83,68 +84,52 @@ function Onboarding() {
     setSaving(true);
 
     // Always read the identity fresh at submit time — a stale/expired session in
-    // component state is what makes the database reject the new business row.
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-    const currentUser = userData?.user ?? null;
-    if (userError || !currentUser) {
+    // component state is what makes the server reject the new business row.
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
       setSaving(false);
       toast.error("Your session expired. Please sign in again.");
       navigate({ to: "/auth" });
       return;
     }
 
-    const payload = {
-      name: String(form["name"]).trim(),
-      niche: form["niche"] || null,
-      industry: form["industry"] || null,
-      location: form["location"] || null,
-      website: form["website"] || null,
-      instagram: form["instagram"] || null,
-      facebook: form["facebook"] || null,
-      whatsapp: form["whatsapp"] || null,
-      google_profile: form["google_profile"] || null,
-      phone: form["phone"] || null,
-      email: form["email"] || null,
-      currency: form["currency"] || "USD",
-      products_services: form["products_services"] || null,
-      main_offers: form["main_offers"] || null,
-      avg_order_value: Number(form["avg_order_value"]) || 0,
-      target_location: form["target_location"] || null,
-      main_customer_type: form["main_customer_type"] || null,
-      monthly_revenue_range: form["monthly_revenue_range"] || null,
-      main_goal: form["main_goal"] || null,
-      goals: form["goals"] ?? [],
-      acquisition_channels: form["acquisition_channels"] ?? [],
-      owner_id: currentUser.id,
-      onboarding_status: "audit",
-    };
+    try {
+      const created = await createOrganization({
+        data: {
+          name: String(form["name"]).trim(),
+          niche: form["niche"] || undefined,
+          industry: form["industry"] || undefined,
+          location: form["location"] || undefined,
+          website: form["website"] || undefined,
+          instagram: form["instagram"] || undefined,
+          facebook: form["facebook"] || undefined,
+          whatsapp: form["whatsapp"] || undefined,
+          googleProfile: form["google_profile"] || undefined,
+          phone: form["phone"] || undefined,
+          email: form["email"] || undefined,
+          currency: form["currency"] || "USD",
+          productsServices: form["products_services"] || undefined,
+          mainOffers: form["main_offers"] || undefined,
+          avgOrderValue: Number(form["avg_order_value"]) || 0,
+          targetLocation: form["target_location"] || undefined,
+          mainCustomerType: form["main_customer_type"] || undefined,
+          monthlyRevenueRange: form["monthly_revenue_range"] || undefined,
+          mainGoal: form["main_goal"] || undefined,
+          goals: form["goals"] ?? [],
+          acquisitionChannels: form["acquisition_channels"] ?? [],
+        },
+      });
 
-    const { error } = await supabase.from("organizations").insert(payload as any);
-    if (error) {
+      setSaving(false);
+      if (created?.["id"]) setStoredOrgId(created["id"] as string);
+      await qc.invalidateQueries();
+      toast.success("Workspace ready");
+      navigate({ to: "/dashboard" });
+    } catch (error) {
       setSaving(false);
       console.error("Create organization failed", error);
-      toast.error(
-        error.message.includes("row-level security")
-          ? "Couldn't create your business — please sign in again."
-          : error.message,
-      );
-      return;
+      toast.error(error instanceof Error ? error.message : "Couldn't create your business");
     }
-
-    // Read the new business back separately, once membership has been attached.
-    const { data: created } = await supabase
-      .from("organizations")
-      .select("id")
-      .eq("owner_id", currentUser.id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    setSaving(false);
-    if (created?.id) setStoredOrgId(created.id);
-    await qc.invalidateQueries();
-    toast.success("Workspace ready");
-    navigate({ to: "/dashboard" });
   }
 
   return (

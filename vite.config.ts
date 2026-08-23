@@ -22,4 +22,12 @@ export default defineConfig({
     }),
     viteReact(),
   ],
+  server: {
+    // Lets a free localtunnel (loca.lt) URL reach the dev server — needed
+    // because Instagram Business Login's OAuth redirect_uri must be HTTPS,
+    // which localhost isn't. Wildcard subdomain since loca.lt assigns a
+    // random one per run unless you pin it. Dev-only; never applies to a
+    // production build.
+    allowedHosts: [".loca.lt"],
+  },
 });
