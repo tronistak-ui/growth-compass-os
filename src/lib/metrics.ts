@@ -123,6 +123,8 @@ export function computeMetrics(data: {
       : 0;
 
   const channelPerformance = channelBreakdown(data);
+  const crossSellOpportunities = crossSellPairs(revenue, customers);
+  const rebookingCandidates = findRebookingCandidates(revenue, customers);
 
   return {
     totalLeads: leads.length,
@@ -154,7 +156,135 @@ export function computeMetrics(data: {
     cac,
     ltv,
     channelPerformance,
+    crossSellOpportunities,
+    rebookingCandidates,
   };
+}
+
+export type CrossSellOpportunity = {
+  productA: string;
+  productB: string;
+  boughtBoth: number;
+  /**
+   * The pitch list, in both directions: someone who has A gets pitched B,
+   * and someone who has B gets pitched A. A one-directional list would miss
+   * half the actual opportunity.
+   */
+  targets: { customerId: string; customerName: string; has: string; pitch: string }[];
+};
+
+/**
+ * "Customers who bought A also bought B" — computed from co-occurring
+ * products in the same customer's purchase history. Each pair also carries
+ * the customers who only have one of the two: the direct cross-sell/upsell
+ * pitch list, not just a statistic.
+ */
+function crossSellPairs(revenue: Row[], customers: Row[]): CrossSellOpportunity[] {
+  const nameById = new Map(customers.map((c) => [c["id"], String(c["name"] ?? "Customer")]));
+  const productsByCustomer = new Map<string, Set<string>>();
+  for (const t of revenue) {
+    const cid = t["customer_id"];
+    const product = t["product_service"];
+    if (!cid || !product) continue;
+    if (!productsByCustomer.has(cid)) productsByCustomer.set(cid, new Set());
+    productsByCustomer.get(cid)!.add(String(product));
+  }
+
+  // Nested by product pair rather than a joined string key — product names
+  // are free text and can contain any delimiter we'd pick (seen firsthand:
+  // "Follow-up Call" broke a space-joined key).
+  const pairCounts = new Map<string, Map<string, number>>();
+  for (const products of productsByCustomer.values()) {
+    const list = [...products].sort();
+    for (let i = 0; i < list.length; i++) {
+      for (let j = i + 1; j < list.length; j++) {
+        const [a, b] = [list[i]!, list[j]!];
+        if (!pairCounts.has(a)) pairCounts.set(a, new Map());
+        const forA = pairCounts.get(a)!;
+        forA.set(b, (forA.get(b) ?? 0) + 1);
+      }
+    }
+  }
+
+  const pairs: CrossSellOpportunity[] = [];
+  for (const [productA, forA] of pairCounts) {
+    for (const [productB, boughtBoth] of forA) {
+      const targets: CrossSellOpportunity["targets"] = [];
+      for (const [customerId, products] of productsByCustomer) {
+        const customerName = nameById.get(customerId) ?? "Customer";
+        const hasA = products.has(productA);
+        const hasB = products.has(productB);
+        if (hasA && !hasB) targets.push({ customerId, customerName, has: productA, pitch: productB });
+        else if (hasB && !hasA) targets.push({ customerId, customerName, has: productB, pitch: productA });
+      }
+      pairs.push({ productA, productB, boughtBoth, targets });
+    }
+  }
+
+  return pairs
+    .sort((a, b) => b.boughtBoth - a.boughtBoth)
+    .slice(0, 8);
+}
+
+export type RebookingCandidate = {
+  customerId: string;
+  customerName: string;
+  lastPurchase: string;
+  daysSinceLastPurchase: number;
+  typicalGapDays: number | null;
+  reason: string;
+};
+
+/**
+ * Customers who are overdue for a repeat purchase — either past their own
+ * historical buying rhythm (>=2 purchases), or a single-purchase customer
+ * who has gone quiet for 45+ days. The output is a pitch list, not a count.
+ */
+function findRebookingCandidates(revenue: Row[], customers: Row[]): RebookingCandidate[] {
+  const datesByCustomer = new Map<string, string[]>();
+  for (const t of revenue) {
+    const cid = t["customer_id"];
+    if (!cid || !t["occurred_on"]) continue;
+    if (!datesByCustomer.has(cid)) datesByCustomer.set(cid, []);
+    datesByCustomer.get(cid)!.push(String(t["occurred_on"]));
+  }
+
+  const today = Date.now();
+  const DAY = 86_400_000;
+  const out: RebookingCandidate[] = [];
+
+  for (const c of customers) {
+    const dates = (datesByCustomer.get(c["id"]) ?? []).slice().sort();
+    if (dates.length === 0) continue;
+    const last = new Date(dates[dates.length - 1]!).getTime();
+    const daysSinceLastPurchase = Math.round((today - last) / DAY);
+
+    let typicalGapDays: number | null = null;
+    if (dates.length >= 2) {
+      const gaps: number[] = [];
+      for (let i = 1; i < dates.length; i++) {
+        gaps.push((new Date(dates[i]!).getTime() - new Date(dates[i - 1]!).getTime()) / DAY);
+      }
+      typicalGapDays = Math.round(gaps.reduce((a, v) => a + v, 0) / gaps.length);
+    }
+
+    const threshold = typicalGapDays !== null ? Math.max(typicalGapDays * 1.5, 14) : 45;
+    if (daysSinceLastPurchase < threshold) continue;
+
+    out.push({
+      customerId: c["id"],
+      customerName: String(c["name"] ?? "Customer"),
+      lastPurchase: dates[dates.length - 1]!,
+      daysSinceLastPurchase,
+      typicalGapDays,
+      reason:
+        typicalGapDays !== null
+          ? `Usually buys every ~${typicalGapDays} days — it's been ${daysSinceLastPurchase}`
+          : `First purchase was ${daysSinceLastPurchase} days ago with no repeat since`,
+    });
+  }
+
+  return out.sort((a, b) => b.daysSinceLastPurchase - a.daysSinceLastPurchase);
 }
 
 export type ChannelPerformance = {

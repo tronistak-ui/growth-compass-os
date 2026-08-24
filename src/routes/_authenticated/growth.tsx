@@ -84,10 +84,98 @@ function GrowthPage() {
             tone={m.lostLeads > 0 ? "negative" : "default"}
           />
           <LeverCard label="Repeat customers" value={String(m.repeatCustomers)} />
-          <LeverCard label="Upsells" value="Plan it" muted />
-          <LeverCard label="Cross-sells" value="Plan it" muted />
+          <LeverCard
+            label="Due for rebooking"
+            value={String(m.rebookingCandidates.length)}
+            tone={m.rebookingCandidates.length > 0 ? "negative" : "default"}
+          />
+          <LeverCard label="Cross-sell pairs found" value={String(m.crossSellOpportunities.length)} />
         </div>
       </Panel>
+
+      <div className="mb-4 grid gap-4 lg:grid-cols-3">
+        <Panel
+          title="Cross-sell & upsell"
+          description="Who bought one thing but not the other"
+        >
+          {m.crossSellOpportunities.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Record at least two different products or services per customer to surface pairs.
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {m.crossSellOpportunities.slice(0, 4).map((op) => (
+                <li key={`${op.productA}|${op.productB}`} className="rounded-lg border border-border px-3 py-2.5">
+                  <div className="text-sm font-medium">
+                    {op.productA} + {op.productB}
+                  </div>
+                  <div className="mt-0.5 text-[13px] text-muted-foreground">
+                    <span className="num">{op.boughtBoth}</span> customer{op.boughtBoth === 1 ? "" : "s"}{" "}
+                    bought both
+                  </div>
+                  {op.targets.length > 0 && (
+                    <ul className="mt-1.5 space-y-0.5 text-[12px] text-muted-foreground">
+                      {op.targets.slice(0, 3).map((t) => (
+                        <li key={t.customerId}>
+                          Pitch <span className="text-foreground">{t.pitch}</span> to{" "}
+                          <span className="text-foreground">{t.customerName}</span> — already has {t.has}
+                        </li>
+                      ))}
+                      {op.targets.length > 3 && <li>+{op.targets.length - 3} more</li>}
+                    </ul>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+
+        <Panel title="Win-back / rebooking" description="Overdue for a repeat purchase">
+          {m.rebookingCandidates.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No one is overdue right now — check back as purchase history builds up.
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {m.rebookingCandidates.slice(0, 5).map((r) => (
+                <li key={r.customerId} className="rounded-lg border border-border px-3 py-2.5">
+                  <div className="text-sm font-medium">{r.customerName}</div>
+                  <div className="mt-0.5 text-[13px] text-muted-foreground">{r.reason}</div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+
+        <Panel title="Lost-lead recovery" description="Already know you — worth one more try">
+          {d.leads.filter((l) => l["status"] === "lost").length === 0 ? (
+            <p className="text-sm text-muted-foreground">No lost leads to recover right now.</p>
+          ) : (
+            <ul className="space-y-3">
+              {d.leads
+                .filter((l) => l["status"] === "lost")
+                .sort((a, b) => Number(b["value"] ?? 0) - Number(a["value"] ?? 0))
+                .slice(0, 5)
+                .map((l) => (
+                  <li key={l["id"]} className="rounded-lg border border-border px-3 py-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-sm font-medium">{String(l["name"])}</div>
+                      {Number(l["value"] ?? 0) > 0 && (
+                        <span className="num text-[12px] text-muted-foreground">
+                          {money(Number(l["value"]), c)}
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-0.5 text-[13px] text-muted-foreground">
+                      Send one recovery offer{l["phone"] ? ` to ${l["phone"]}` : ""}
+                      {l["email"] ? ` (${l["email"]})` : ""}.
+                    </div>
+                  </li>
+                ))}
+            </ul>
+          )}
+        </Panel>
+      </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Panel
