@@ -9,6 +9,7 @@
 // registration because Vite's dev-mode HMR can re-evaluate this module.
 import cron from "node-cron";
 import { syncAllConnections } from "./oauth/presence-sync.server";
+import { sendWeeklyDigests } from "./notify/weekly-digest.server";
 
 declare global {
   // eslint-disable-next-line no-var
@@ -29,6 +30,21 @@ export function startCronJobs(): void {
         console.log(`[cron] daily presence sync: ${results.length} connection(s), ${failed} failed`);
       } catch (e) {
         console.error("[cron] daily presence sync failed to run:", e);
+      }
+    },
+    { timezone: "UTC" },
+  );
+
+  // 07:00 UTC every Monday — the weekly "here's what to fix" digest.
+  cron.schedule(
+    "0 7 * * 1",
+    async () => {
+      try {
+        const results = await sendWeeklyDigests();
+        const sent = results.filter((r) => r.sent).length;
+        console.log(`[cron] weekly digest: ${sent}/${results.length} organization(s) emailed`);
+      } catch (e) {
+        console.error("[cron] weekly digest failed to run:", e);
       }
     },
     { timezone: "UTC" },

@@ -27,6 +27,7 @@ import { Route as AuthenticatedReachRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated/tasks'
+import { Route as ApiInstagramWebhookRouteImport } from './routes/api/instagram/webhook'
 import { Route as ApiOauthCallbackRouteImport } from './routes/api/oauth/callback'
 import { Route as ApiStorageSplatRouteImport } from './routes/api/storage/$'
 
@@ -120,6 +121,11 @@ const AuthenticatedTasksRoute = AuthenticatedTasksRouteImport.update({
   path: '/tasks',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const ApiInstagramWebhookRoute = ApiInstagramWebhookRouteImport.update({
+  id: '/api/instagram/webhook',
+  path: '/api/instagram/webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiOauthCallbackRoute = ApiOauthCallbackRouteImport.update({
   id: '/api/oauth/callback',
   path: '/api/oauth/callback',
@@ -149,6 +155,7 @@ export interface FileRoutesByFullPath {
   '/reports': typeof AuthenticatedReportsRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/tasks': typeof AuthenticatedTasksRoute
+  '/api/instagram/webhook': typeof ApiInstagramWebhookRoute
   '/api/oauth/callback': typeof ApiOauthCallbackRoute
   '/api/storage/$': typeof ApiStorageSplatRoute
 }
@@ -170,6 +177,7 @@ export interface FileRoutesByTo {
   '/reports': typeof AuthenticatedReportsRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/tasks': typeof AuthenticatedTasksRoute
+  '/api/instagram/webhook': typeof ApiInstagramWebhookRoute
   '/api/oauth/callback': typeof ApiOauthCallbackRoute
   '/api/storage/$': typeof ApiStorageSplatRoute
 }
@@ -193,6 +201,7 @@ export interface FileRoutesById {
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
+  '/api/instagram/webhook': typeof ApiInstagramWebhookRoute
   '/api/oauth/callback': typeof ApiOauthCallbackRoute
   '/api/storage/$': typeof ApiStorageSplatRoute
 }
@@ -216,6 +225,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/settings'
     | '/tasks'
+    | '/api/instagram/webhook'
     | '/api/oauth/callback'
     | '/api/storage/$'
   fileRoutesByTo: FileRoutesByTo
@@ -237,6 +247,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/settings'
     | '/tasks'
+    | '/api/instagram/webhook'
     | '/api/oauth/callback'
     | '/api/storage/$'
   id:
@@ -259,6 +270,7 @@ export interface FileRouteTypes {
     | '/_authenticated/reports'
     | '/_authenticated/settings'
     | '/_authenticated/tasks'
+    | '/api/instagram/webhook'
     | '/api/oauth/callback'
     | '/api/storage/$'
   fileRoutesById: FileRoutesById
@@ -267,6 +279,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiInstagramWebhookRoute: typeof ApiInstagramWebhookRoute
   ApiOauthCallbackRoute: typeof ApiOauthCallbackRoute
   ApiStorageSplatRoute: typeof ApiStorageSplatRoute
 }
@@ -399,6 +412,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedTasksRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/instagram/webhook': {
+      id: '/api/instagram/webhook'
+      path: '/api/instagram/webhook'
+      fullPath: '/api/instagram/webhook'
+      preLoaderRoute: typeof ApiInstagramWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/oauth/callback': {
       id: '/api/oauth/callback'
       path: '/api/oauth/callback'
@@ -459,6 +479,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiInstagramWebhookRoute: ApiInstagramWebhookRoute,
   ApiOauthCallbackRoute: ApiOauthCallbackRoute,
   ApiStorageSplatRoute: ApiStorageSplatRoute,
 }

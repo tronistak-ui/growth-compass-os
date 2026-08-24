@@ -130,12 +130,19 @@ export const leads = pgTable(
     lastContact: date("last_contact"),
     nextFollowUp: date("next_follow_up"),
     notes: text("notes"),
+    // The sender id from an inbound channel event (e.g. an Instagram IGSID)
+    // — lets a webhook recognize a returning sender as the same lead
+    // instead of creating a duplicate on every message. Generic by design
+    // so any future message-based channel (WhatsApp, once unblocked) can
+    // reuse it rather than growing a column per provider.
+    externalId: text("external_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     index("idx_leads_org").on(table.organizationId),
     index("idx_leads_status").on(table.organizationId, table.status),
+    unique("leads_org_external_id_unique").on(table.organizationId, table.externalId),
   ],
 );
 

@@ -14,10 +14,13 @@ export const SUPPORTED_PROVIDERS = new Set(["google_business", "instagram"]);
 
 const GOOGLE_SCOPES = ["https://www.googleapis.com/auth/business.manage"];
 
-// Least-privilege for presence sync (profile info + follower count) — the
-// app also has instagram_business_manage_comments/_messages available for
-// its messaging use case, neither of which we need here.
-const INSTAGRAM_SCOPES = ["instagram_business_basic"];
+// instagram_business_basic covers presence sync (profile info + follower
+// count). instagram_business_manage_messages additionally lets the webhook
+// in routes/api/instagram/webhook.ts read DMs and turn them into leads —
+// production traffic needs this approved via Meta App Review first; it
+// works against up to 25 test-mode accounts before that. Existing
+// connections keep their old (narrower) grant until reconnected.
+const INSTAGRAM_SCOPES = ["instagram_business_basic", "instagram_business_manage_messages"];
 
 export function buildAuthorizeUrl(provider: string, state: string): string | null {
   if (provider === "google_business") {

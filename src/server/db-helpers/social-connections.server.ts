@@ -24,6 +24,25 @@ export function listConnectedConnections(): Promise<SocialConnection[]> {
   return db.select().from(socialConnections).where(eq(socialConnections.status, "connected"));
 }
 
+/** Reverse lookup for inbound webhooks: which org does this provider account belong to? */
+export function findConnectionByExternalAccountId(
+  provider: string,
+  externalAccountId: string,
+): Promise<SocialConnection | undefined> {
+  return db
+    .select()
+    .from(socialConnections)
+    .where(
+      and(
+        eq(socialConnections.provider, provider),
+        eq(socialConnections.externalAccountId, externalAccountId),
+        eq(socialConnections.status, "connected"),
+      ),
+    )
+    .limit(1)
+    .then((rows) => rows[0]);
+}
+
 export async function upsertConnection(input: {
   organizationId: string;
   provider: string;

@@ -1,4 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useMutation } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
   ResponsiveContainer,
   BarChart,
@@ -16,6 +18,7 @@ import { Panel, StatCard, Meter } from "@/components/growth/ui";
 import { Button } from "@/components/ui/button";
 import { useOrgData } from "@/lib/use-org-data";
 import { money, pct, groupCount, groupSum, monthlySeries } from "@/lib/metrics";
+import { sendMyWeeklyDigest } from "@/server/functions/digest";
 
 export const Route = createFileRoute("/_authenticated/reports")({
   head: () => ({
@@ -67,6 +70,12 @@ function ReportsPage() {
   const byProduct = groupSum(d.revenue, "product_service").slice(0, 6);
   const byCategory = groupSum(d.expenses, "category").slice(0, 6);
 
+  const sendDigest = useMutation({
+    mutationFn: () => sendMyWeeklyDigest({ data: { orgId: d.orgId! } }),
+    onSuccess: () => toast.success("Digest emailed to every member of this business"),
+    onError: (e: Error) => toast.error(e.message ?? "Could not send digest"),
+  });
+
   function exportCsv() {
     const rows: (string | number)[][] = [
       ["TrendZypher Growth OS — Monthly Report"],
@@ -107,6 +116,14 @@ function ReportsPage() {
       subtitle="Everything that happened this month, in plain language"
       actions={
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => sendDigest.mutate()}
+            disabled={sendDigest.isPending || !d.orgId}
+          >
+            {sendDigest.isPending ? "Sending…" : "Email me this"}
+          </Button>
           <Button variant="outline" size="sm" onClick={exportCsv}>
             Export CSV
           </Button>
