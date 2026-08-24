@@ -14,13 +14,19 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useState } from "react";
-import { listAllOrganizations, setOnboardingStage, saveOrgNotes } from "@/server/functions/organizations";
+import {
+  listAllOrganizations,
+  setOnboardingStage,
+  saveOrgNotes,
+  updateOrgBilling,
+} from "@/server/functions/organizations";
 import { getOrgActivity, getSystemHealthCheck, claimPlatformAdmin } from "@/server/functions/admin";
 import { useIsAdmin, useHasRole, setStoredOrgId } from "@/lib/growth";
 import { money } from "@/lib/metrics";
 import { ONBOARDING_STAGES, stageLabel } from "@/lib/niches";
 import { HealthAlertsPanel } from "@/components/growth/health-alerts";
 import { TeamRolesPanel } from "@/components/growth/team-roles";
+import { cn } from "@/lib/utils";
 import {
   Select,
   SelectContent,
@@ -53,6 +59,14 @@ type OrgRow = {
   onboarding_status: string | null;
   onboarding_completed: boolean | null;
   internal_notes: string | null;
+  billing_status: "active" | "overdue" | "suspended" | null;
+  next_payment_due_date: string | null;
+};
+
+const BILLING_TONE: Record<string, string> = {
+  active: "bg-success/10 text-success",
+  overdue: "bg-warning/10 text-warning",
+  suspended: "bg-destructive/10 text-destructive",
 };
 
 function AdminPage() {
@@ -63,6 +77,10 @@ function AdminPage() {
   const [notesFor, setNotesFor] = useState<OrgRow | null>(null);
   const [notesDraft, setNotesDraft] = useState("");
   const [savingNotes, setSavingNotes] = useState(false);
+  const [billingFor, setBillingFor] = useState<OrgRow | null>(null);
+  const [billingStatusDraft, setBillingStatusDraft] = useState<"active" | "overdue" | "suspended">("active");
+  const [billingDueDraft, setBillingDueDraft] = useState("");
+  const [savingBilling, setSavingBilling] = useState(false);
   const qc = useQueryClient();
 
   const orgs = useQuery({
@@ -165,6 +183,29 @@ function AdminPage() {
       toast.error(e instanceof Error ? e.message : "Could not save");
     } finally {
       setSavingNotes(false);
+    }
+  }
+
+  function openBilling(row: OrgRow) {
+    setBillingFor(row);
+    setBillingStatusDraft(row.billing_status ?? "active");
+    setBillingDueDraft(row.next_payment_due_date ?? "");
+  }
+
+  async function saveBilling() {
+    if (!billingFor) return;
+    setSavingBilling(true);
+    try {
+      await updateOrgBilling({
+        data: { id: billingFor.id, billingStatus: billingStatusDraft, nextPaymentDueDate: billingDueDraft || null },
+      });
+      toast.success("Billing updated");
+      setBillingFor(null);
+      void qc.invalidateQueries({ queryKey: ["admin", "organizations"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not save");
+    } finally {
+      setSavingBilling(false);
     }
   }
 
@@ -291,6 +332,7 @@ function AdminPage() {
                 <th className="py-2">Leads</th>
                 <th className="py-2">Customers</th>
                 <th className="py-2">Revenue</th>
+                <th className="py-2">Billing</th>
                 <th className="py-2">Growth score</th>
                 <th className="py-2">Created</th>
                 <th className="py-2" />
@@ -325,6 +367,23 @@ function AdminPage() {
                     <td className="num py-2">{a?.customers ?? 0}</td>
                     <td className="num py-2">{money(a?.revenue ?? 0, r.currency ?? "USD")}</td>
                     <td className="py-2">
+                      <button
+                        type="button"
+                        onClick={() => openBilling(r)}
+                        className={cn(
+                          "inline-flex flex-col items-start gap-0.5 rounded-md px-2 py-1 text-left text-xs font-medium capitalize transition-opacity hover:opacity-80",
+                          BILLING_TONE[r.billing_status ?? "active"],
+                        )}
+                      >
+                        {r.billing_status ?? "active"}
+                        {r.next_payment_due_date && (
+                          <span className="text-[10px] font-normal normal-case opacity-80">
+                            due {new Date(r.next_payment_due_date).toLocaleDateString()}
+                          </span>
+                        )}
+                      </button>
+                    </td>
+                    <td className="py-2">
                       <div className="flex items-center gap-2">
                         <div className="h-1.5 w-20 overflow-hidden rounded-full bg-surface-3">
                           <div
@@ -356,7 +415,7 @@ function AdminPage() {
               })}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="py-6 text-center text-muted-foreground">
+                  <td colSpan={10} className="py-6 text-center text-muted-foreground">
                     No businesses yet.
                   </td>
                 </tr>
@@ -383,6 +442,41 @@ function AdminPage() {
             </Button>
             <Button disabled={savingNotes} onClick={() => void saveNotes()}>
               Save notes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!billingFor} onOpenChange={(open) => !open && setBillingFor(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Billing · {billingFor?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Status</label>
+              <Select value={billingStatusDraft} onValueChange={(v) => setBillingStatusDraft(v as typeof billingStatusDraft)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="overdue">Overdue (warning only, still has access)</SelectItem>
+                  <SelectItem value="suspended">Suspended (locked out)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Next payment due</label>
+              <Input type="date" value={billingDueDraft} onChange={(e) => setBillingDueDraft(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBillingFor(null)}>
+              Cancel
+            </Button>
+            <Button disabled={savingBilling} onClick={() => void saveBilling()}>
+              Save billing
             </Button>
           </DialogFooter>
         </DialogContent>

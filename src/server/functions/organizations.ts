@@ -148,6 +148,28 @@ export const saveOrgNotes = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+const updateBillingInput = z.object({
+  id: z.string().uuid(),
+  billingStatus: z.enum(["active", "overdue", "suspended"]),
+  nextPaymentDueDate: z.string().nullable().optional(),
+});
+
+/** Manual billing — a platform admin flips this after confirming a bank transfer. */
+export const updateOrgBilling = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .validator((input: unknown) => updateBillingInput.parse(input))
+  .handler(async ({ data, context }) => {
+    await requireAdminOrSupport(context.userId);
+    await db
+      .update(organizations)
+      .set({
+        billingStatus: data.billingStatus,
+        nextPaymentDueDate: data.nextPaymentDueDate ?? null,
+      })
+      .where(eq(organizations.id, data.id));
+    return { ok: true };
+  });
+
 async function requireAdminOrSupport(userId: string) {
   if (!(await hasAnyRole(userId, ["platform_admin", "support"]))) {
     throw new Error("Not authorized");

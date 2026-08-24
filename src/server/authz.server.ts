@@ -5,7 +5,7 @@
 // org-scoped data must call one of these explicitly.
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db/client";
-import { organizationMembers, userRoles } from "@/db/schema";
+import { organizationMembers, organizations, userRoles } from "@/db/schema";
 
 export type AppRole = "platform_admin" | "business_owner" | "support" | "auditor";
 
@@ -57,16 +57,38 @@ export async function isOrgMemberWithWrite(userId: string, orgId: string): Promi
   return hasAnyRole(userId, ["platform_admin", "support"]);
 }
 
+async function isOrgSuspended(orgId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ billingStatus: organizations.billingStatus })
+    .from(organizations)
+    .where(eq(organizations.id, orgId))
+    .limit(1);
+  return row?.billingStatus === "suspended";
+}
+
+const SUSPENDED_MESSAGE =
+  "This account is on hold pending payment — contact your account manager to restore access.";
+
+/**
+ * A suspended org's own members are blocked here — the one real
+ * enforcement point every org-scoped server function already calls.
+ * platform_admin/support bypass this (same as they bypass membership
+ * itself) so a suspended client can still be reached and reactivated.
+ */
 export async function requireOrgMember(userId: string, orgId: string): Promise<void> {
-  if (!(await isOrgMember(userId, orgId))) {
+  if (await hasAnyRole(userId, ["platform_admin", "support", "auditor"])) return;
+  if (!(await isDirectMember(userId, orgId))) {
     throw new Error("Not a member of this organization");
   }
+  if (await isOrgSuspended(orgId)) throw new Error(SUSPENDED_MESSAGE);
 }
 
 export async function requireOrgWrite(userId: string, orgId: string): Promise<void> {
-  if (!(await isOrgMemberWithWrite(userId, orgId))) {
+  if (await hasAnyRole(userId, ["platform_admin", "support"])) return;
+  if (!(await isDirectMember(userId, orgId))) {
     throw new Error("Not authorized to modify this organization's data");
   }
+  if (await isOrgSuspended(orgId)) throw new Error(SUSPENDED_MESSAGE);
 }
 
 export async function requireAnyRole(userId: string, roles: AppRole[]): Promise<void> {

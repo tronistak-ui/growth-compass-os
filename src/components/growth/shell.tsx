@@ -25,7 +25,14 @@ import {
   Bell,
   Search,
 } from "lucide-react";
-import { useActiveOrg, useIsAdmin, useProfile, setStoredOrgId, signOut as signOutSession } from "@/lib/growth";
+import {
+  useActiveOrg,
+  useIsAdmin,
+  useHasRole,
+  useProfile,
+  setStoredOrgId,
+  signOut as signOutSession,
+} from "@/lib/growth";
 import { useNotifications, useMarkNotificationRead } from "@/lib/health";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
@@ -122,6 +129,7 @@ export function AppShell({
   const { org, orgs } = useActiveOrg();
   const { data: profile } = useProfile();
   const { data: isAdmin } = useIsAdmin();
+  const { data: staffAccess } = useHasRole("platform_admin", "support");
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -133,6 +141,13 @@ export function AppShell({
     qc.clear();
     await signOutSession();
     navigate({ to: "/auth", replace: true });
+  }
+
+  const billingStatus = org?.["billing_status"] as string | undefined;
+  const nextDue = org?.["next_payment_due_date"] as string | undefined;
+  // Staff can always get in — a suspended client still needs to be reachable.
+  if (billingStatus === "suspended" && !staffAccess) {
+    return <SuspendedScreen orgName={String(org?.["name"] ?? "This business")} onSignOut={signOut} />;
   }
 
   return (
@@ -309,11 +324,38 @@ export function AppShell({
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-[1400px] px-4 py-6 sm:px-6 sm:py-8">{children}</main>
+        <main className="mx-auto w-full max-w-[1400px] px-4 py-6 sm:px-6 sm:py-8">
+          {billingStatus === "overdue" && !staffAccess && (
+            <div className="mb-4 rounded-lg border border-warning/30 bg-warning/10 px-4 py-2.5 text-sm text-warning">
+              Your payment is overdue{nextDue ? ` (was due ${new Date(nextDue).toLocaleDateString()})` : ""} —
+              please settle it soon to avoid losing access.
+            </div>
+          )}
+          {children}
+        </main>
       </div>
 
       <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
       <QuickAdd />
+    </div>
+  );
+}
+
+function SuspendedScreen({ orgName, onSignOut }: { orgName: string; onSignOut: () => void }) {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+      <div className="max-w-sm text-center">
+        <div className="mx-auto mb-4 grid size-12 place-items-center rounded-full bg-destructive/10 text-destructive">
+          <Building2 className="size-6" />
+        </div>
+        <h1 className="text-lg font-semibold text-ink">{orgName}'s access is on hold</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          This account is paused pending payment. Contact your account manager to restore access.
+        </p>
+        <Button variant="outline" className="mt-6" onClick={onSignOut}>
+          Sign out
+        </Button>
+      </div>
     </div>
   );
 }

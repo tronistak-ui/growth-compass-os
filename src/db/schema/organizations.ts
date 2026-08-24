@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, numeric, boolean, timestamp, unique, check, index } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, numeric, boolean, date, timestamp, unique, check, index } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { users } from "./users";
 
@@ -34,6 +34,14 @@ export const organizations = pgTable(
     onboardingStatus: text("onboarding_status").notNull().default("not_started"),
     onboardingCompleted: boolean("onboarding_completed").notNull().default(false),
     internalNotes: text("internal_notes"),
+    // Manual billing (one-time setup fee + recurring, paid by bank transfer,
+    // not through an automated processor) — a platform admin sets this by
+    // hand after confirming payment. "overdue" is a soft warning that still
+    // allows full access; only "suspended" actually locks the org out, and
+    // only for its own owner/members — platform_admin/support always get
+    // through, so a suspended client can still be reached and fixed.
+    billingStatus: text("billing_status").notNull().default("active"),
+    nextPaymentDueDate: date("next_payment_due_date"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -41,6 +49,10 @@ export const organizations = pgTable(
     check(
       "organizations_onboarding_status_check",
       sql`${table.onboardingStatus} IN ('not_started','onboarding','audit','system_setup','optimization','completed')`,
+    ),
+    check(
+      "organizations_billing_status_check",
+      sql`${table.billingStatus} IN ('active','overdue','suspended')`,
     ),
   ],
 );
