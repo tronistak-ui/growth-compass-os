@@ -653,3 +653,98 @@ export function positioningScore(p: Row | null | undefined, competitors: number)
   const compBonus = Math.min(competitors, 3) * 5;
   return Math.round(Math.min(100, base + compBonus));
 }
+
+export function priorityLabel(impact: number): "High" | "Medium" | "Low" {
+  if (impact >= 80) return "High";
+  if (impact >= 50) return "Medium";
+  return "Low";
+}
+
+export type AdvisorAnswer = { answer: string; detail: string };
+
+export type AdvisorSummary = {
+  /** Where are my customers coming from? */
+  sourcing: AdvisorAnswer;
+  /** Where am I losing them? */
+  leaking: AdvisorAnswer;
+  /** How much money am I making? */
+  revenue: AdvisorAnswer;
+  /** What is preventing me from making more? */
+  blocker: AdvisorAnswer;
+  /** What should I do next? */
+  nextAction: AdvisorAnswer;
+  /** The single highest-impact insight — the worked example. */
+  topOpportunity: Insight | null;
+};
+
+/**
+ * Assembles the five standing questions plus the "biggest opportunity"
+ * worked example entirely from metrics and insights already computed
+ * elsewhere — no new data, no AI call. Deterministic and re-derivable from
+ * a re-render, same as buildInsights.
+ */
+export function buildAdvisorSummary(m: Metrics, insights: Insight[], currency = "USD"): AdvisorSummary {
+  const topChannel = m.channelPerformance.find((c) => c.leads > 0 || c.customers > 0) ?? null;
+  const sourcing: AdvisorAnswer = topChannel
+    ? {
+        answer: `${cap(topChannel.channel)} is your top source`,
+        detail: `${topChannel.customers} customer${topChannel.customers === 1 ? "" : "s"} and ${money(topChannel.revenue, currency)} in revenue came through ${topChannel.channel}${topChannel.leads ? `, from ${topChannel.leads} lead${topChannel.leads === 1 ? "" : "s"}` : ""}.`,
+      }
+    : {
+        answer: "Not enough source data yet",
+        detail: "Add a source when you create a lead or customer so this can be answered.",
+      };
+
+  let leaking: AdvisorAnswer;
+  if (m.totalLeads === 0) {
+    leaking = {
+      answer: "You don't have leads recorded yet",
+      detail: "Capture is the first leak to fix — add leads as they come in.",
+    };
+  } else if (m.qualifiedRate < 50) {
+    leaking = {
+      answer: "Most leads never get qualified",
+      detail: `Only ${pct(m.qualifiedRate, 0)} of ${m.totalLeads} leads move past first contact — the drop-off is early, before the offer even comes up.`,
+    };
+  } else if (m.conversionRate < 20) {
+    leaking = {
+      answer: "Leads get qualified but few convert",
+      detail: `${pct(m.qualifiedRate, 0)} get qualified, but only ${pct(m.conversionRate, 0)} of all leads become customers — the leak is at the close.`,
+    };
+  } else {
+    leaking = {
+      answer: "Your funnel is holding up well",
+      detail: `${pct(m.conversionRate, 0)} of leads become customers — the constraint right now is volume, not leaks.`,
+    };
+  }
+
+  const revenue: AdvisorAnswer =
+    m.revenueThisMonth > 0
+      ? {
+          answer: `${money(m.profit, currency)} profit this month`,
+          detail: `${pct(m.margin, 0)} margin on ${money(m.revenueThisMonth, currency)} revenue, ${money(m.expensesThisMonth, currency)} spent.`,
+        }
+      : {
+          answer: "No revenue recorded yet this month",
+          detail: "Log sales in Finance so profit and margin can be calculated.",
+        };
+
+  const topOpportunity = insights[0] ?? null;
+  const blockerInsight = insights.find((i) => i.tone === "critical" || i.tone === "warning") ?? null;
+
+  const blocker: AdvisorAnswer = blockerInsight
+    ? { answer: blockerInsight.title, detail: blockerInsight.detail }
+    : {
+        answer: "Nothing critical is blocking growth right now",
+        detail: "The biggest lever left is opportunity, not a fix — see below.",
+      };
+
+  const nextAction: AdvisorAnswer = topOpportunity
+    ? { answer: topOpportunity.action, detail: `Moves: ${topOpportunity.module} — ${topOpportunity.current} → ${topOpportunity.target}` }
+    : {
+        answer: "Add leads, revenue and presence data",
+        detail: "The advisor needs real numbers before it can recommend a next move.",
+      };
+
+  return { sourcing, leaking, revenue, blocker, nextAction, topOpportunity };
+}

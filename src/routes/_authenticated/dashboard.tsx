@@ -40,7 +40,7 @@ import {
 import { useOrgData } from "@/lib/use-org-data";
 import { OnboardingChecklist } from "@/components/growth/onboarding-checklist";
 import { useOnboardingChecklist } from "@/lib/checklist";
-import { money, pct, monthlySeries } from "@/lib/metrics";
+import { money, pct, monthlySeries, buildAdvisorSummary, priorityLabel } from "@/lib/metrics";
 import { lexicon } from "@/lib/niches";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -83,6 +83,8 @@ function Dashboard() {
     { label: "Revenue", value: m.totalRevenue },
   ];
   const maxFunnel = Math.max(...funnel.map((f) => f.value), 1);
+  const advisor = buildAdvisorSummary(m, d.insights, cur);
+  const top = advisor.topOpportunity;
 
   if (!d.isLoading && !d.org) {
     return (
@@ -123,6 +125,52 @@ function Dashboard() {
             description="Where this business is in the onboarding journey"
           >
             <StageTracker stage={String(d.org?.["onboarding_status"] ?? "not_started")} />
+          </Panel>
+
+          <Panel
+            title="Growth advisor"
+            description="Rule-based synthesis of everything below — no AI, no guesswork"
+            actions={<Sparkles className="size-4 text-primary" />}
+          >
+            {top ? (
+              <div className="space-y-4">
+                <div>
+                  <div className="text-[11px] font-medium tracking-[0.08em] text-muted-foreground uppercase">
+                    Biggest opportunity this month
+                  </div>
+                  <div className="mt-1 text-base font-semibold text-ink">{top.title}</div>
+                  <p className="mt-1 text-sm text-muted-foreground">{top.detail}</p>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                  <AdvisorField label="Recommended action" value={top.action} />
+                  <AdvisorField label="Why it matters" value={top.detail} />
+                  <AdvisorField
+                    label="Metric affected"
+                    value={`${top.module}: ${top.current} → ${top.target}`}
+                  />
+                  <AdvisorField label="Priority" value={priorityLabel(top.impact)} />
+                  <div className="flex items-end">
+                    <Link to="/growth">
+                      <Button size="sm" variant="outline">
+                        Track result <ArrowRight className="ml-1 size-3.5" />
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Add leads, customers and revenue to unlock a recommendation.
+              </p>
+            )}
+
+            <div className="mt-5 grid gap-3 border-t border-border pt-5 sm:grid-cols-2 lg:grid-cols-5">
+              <QAField question="Where are my customers coming from?" a={advisor.sourcing} />
+              <QAField question="Where am I losing them?" a={advisor.leaking} />
+              <QAField question="How much money am I making?" a={advisor.revenue} />
+              <QAField question="What's preventing me from making more?" a={advisor.blocker} />
+              <QAField question="What should I do next?" a={advisor.nextAction} />
+            </div>
           </Panel>
 
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
@@ -355,5 +403,26 @@ function Dashboard() {
         </div>
       )}
     </AppShell>
+  );
+}
+
+function AdvisorField({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="text-[11px] font-medium tracking-[0.08em] text-muted-foreground uppercase">
+        {label}
+      </div>
+      <div className="mt-0.5 line-clamp-3 text-[13px] text-foreground/90">{value}</div>
+    </div>
+  );
+}
+
+function QAField({ question, a }: { question: string; a: { answer: string; detail: string } }) {
+  return (
+    <div>
+      <div className="text-[11px] text-muted-foreground">{question}</div>
+      <div className="mt-0.5 text-[13px] font-medium text-ink">{a.answer}</div>
+      <div className="mt-0.5 line-clamp-2 text-[12px] text-muted-foreground">{a.detail}</div>
+    </div>
   );
 }
