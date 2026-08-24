@@ -141,6 +141,8 @@ function LeadsPage() {
         <CrudPanel
           table="leads"
           orgId={orgId}
+          csv
+          bulkActions
           title={`${lex.leads} pipeline`}
           description="Add enquiries, move them through stages and never lose a follow-up."
           queryOpts={{ order: { column: "created_at" } }}

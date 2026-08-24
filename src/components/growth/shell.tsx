@@ -23,6 +23,7 @@ import {
   Sun,
   Moon,
   Bell,
+  Search,
 } from "lucide-react";
 import { useActiveOrg, useIsAdmin, useProfile, setStoredOrgId, signOut as signOutSession } from "@/lib/growth";
 import { useNotifications, useMarkNotificationRead } from "@/lib/health";
@@ -30,6 +31,8 @@ import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
+import { GlobalSearch } from "./global-search";
+import { QuickAdd } from "./quick-add";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -55,7 +58,11 @@ const NAV = [
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 
-/** Platform_admin/support only see rows here — same audience the fan-out writes to. */
+/**
+ * Shows whatever notifications belong to the current user — historically
+ * only system health alerts (platform_admin/support), now also the daily
+ * overdue-follow-up/task nudge every business owner gets.
+ */
 function NotificationsBell() {
   const { data: notifications } = useNotifications();
   const markRead = useMarkNotificationRead();
@@ -119,6 +126,7 @@ export function AppShell({
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   async function signOut() {
     await qc.cancelQueries();
@@ -131,7 +139,7 @@ export function AppShell({
     <div className="min-h-screen bg-background">
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex w-60 flex-col bg-sidebar text-sidebar-foreground transition-transform lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-40 flex w-60 flex-col bg-sidebar text-sidebar-foreground transition-transform lg:translate-x-0 print:hidden",
           open ? "translate-x-0" : "-translate-x-full",
         )}
       >
@@ -198,8 +206,8 @@ export function AppShell({
         <div className="fixed inset-0 z-30 bg-black/40 lg:hidden" onClick={() => setOpen(false)} />
       )}
 
-      <div className="lg:pl-60">
-        <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-border bg-card/85 px-4 backdrop-blur-md sm:px-6">
+      <div className="lg:pl-60 print:pl-0">
+        <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-border bg-card/85 px-4 backdrop-blur-md sm:px-6 print:hidden">
           <Button
             variant="ghost"
             size="icon"
@@ -216,6 +224,25 @@ export function AppShell({
 
           <div className="flex items-center gap-2">
             {actions}
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="hidden gap-2 text-muted-foreground sm:flex"
+              onClick={() => setSearchOpen(true)}
+            >
+              <Search className="size-3.5" /> Search
+              <kbd className="rounded border border-border bg-surface-2 px-1.5 py-0.5 text-[10px]">⌘K</kbd>
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="sm:hidden"
+              onClick={() => setSearchOpen(true)}
+              aria-label="Search"
+            >
+              <Search className="size-4" />
+            </Button>
 
             <Button
               variant="ghost"
@@ -284,6 +311,9 @@ export function AppShell({
 
         <main className="mx-auto w-full max-w-[1400px] px-4 py-6 sm:px-6 sm:py-8">{children}</main>
       </div>
+
+      <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
+      <QuickAdd />
     </div>
   );
 }

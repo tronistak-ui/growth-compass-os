@@ -106,6 +106,8 @@ function CustomersPage() {
       <CrudPanel
         table="customers"
         orgId={orgId}
+        csv
+        bulkActions
         title={`${lex.customers} list`}
         description="Store contact details and notes for every relationship you want to keep."
         queryOpts={{ order: { column: "created_at" } }}

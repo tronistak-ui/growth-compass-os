@@ -2,14 +2,23 @@ import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/growth/shell";
 import { CrudPanel } from "@/components/growth/crud";
 import { Panel, StatCard } from "@/components/growth/ui";
-import { useActiveOrg } from "@/lib/growth";
+import { useActiveOrg, useSaveRow } from "@/lib/growth";
 import { useSyncInsights } from "@/lib/opportunities";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { CheckSquare } from "lucide-react";
 import { nicheConfig } from "@/lib/niches";
 import { useOrgData } from "@/lib/use-org-data";
-import { money, pct } from "@/lib/metrics";
+import { money, pct, priorityLabel, type Insight } from "@/lib/metrics";
 import { cn } from "@/lib/utils";
+
+const INSIGHT_MODULE_TO_TASK_MODULE: Record<string, string> = {
+  "Revenue Growth": "growth",
+};
+
+function taskModuleFor(insightModule: string): string {
+  return INSIGHT_MODULE_TO_TASK_MODULE[insightModule] ?? insightModule.toLowerCase();
+}
 
 export const Route = createFileRoute("/_authenticated/growth")({
   head: () => ({
@@ -39,12 +48,32 @@ function GrowthPage() {
   const c = d.currency;
   const cfg = nicheConfig(d.org?.["niche"]);
   const sync = useSyncInsights(orgId);
+  const saveTask = useSaveRow("tasks", orgId);
 
   function syncInsights() {
     sync.mutate(d.insights, {
       onSuccess: (n) => toast.success(`${n} rule-based opportunities synced to your growth plan`),
       onError: (e: any) => toast.error(e.message ?? "Could not sync opportunities"),
     });
+  }
+
+  function addTask(input: { title: string; module: string; priority: string; notes?: string | undefined }) {
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + 7);
+    saveTask.mutate(
+      {
+        title: input.title,
+        module: input.module,
+        priority: input.priority,
+        status: "todo",
+        due_date: dueDate.toISOString().slice(0, 10),
+        notes: input.notes ?? null,
+      },
+      {
+        onSuccess: () => toast.success("Added to Tasks, due in a week"),
+        onError: (e: any) => toast.error(e.message ?? "Could not create task"),
+      },
+    );
   }
 
   return (
@@ -198,7 +227,7 @@ function GrowthPage() {
                 Add leads, customers and revenue to unlock recommendations.
               </li>
             )}
-            {d.insights.slice(0, 6).map((i: any) => (
+            {d.insights.slice(0, 6).map((i: Insight) => (
               <li key={i.key} className="rounded-lg border border-border px-3 py-2.5">
                 <div className="flex items-center justify-between gap-2">
                   <div className="text-[11px] tracking-[0.08em] text-muted-foreground uppercase">
@@ -210,8 +239,26 @@ function GrowthPage() {
                 </div>
                 <div className="mt-0.5 text-sm font-medium">{i.title}</div>
                 <div className="mt-0.5 text-[13px] text-muted-foreground">{i.detail}</div>
-                <div className="mt-1.5 text-[12px] text-muted-foreground">
-                  <span className="num">{i.current}</span> → <span className="num">{i.target}</span>
+                <div className="mt-1.5 flex items-center justify-between gap-2">
+                  <div className="text-[12px] text-muted-foreground">
+                    <span className="num">{i.current}</span> → <span className="num">{i.target}</span>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 px-1.5 text-[11px] text-muted-foreground hover:text-primary"
+                    onClick={() =>
+                      addTask({
+                        title: i.action,
+                        module: taskModuleFor(i.module),
+                        priority: priorityLabel(i.impact).toLowerCase(),
+                        notes: i.detail,
+                      })
+                    }
+                    disabled={saveTask.isPending}
+                  >
+                    <CheckSquare className="mr-1 size-3" /> Task
+                  </Button>
                 </div>
               </li>
             ))}
@@ -263,6 +310,29 @@ function GrowthPage() {
                 label: "Action to take",
                 type: "textarea",
                 inTable: false,
+              },
+              {
+                name: "convert",
+                label: "",
+                inForm: false,
+                render: (row) => (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2 text-[11px] text-muted-foreground hover:text-primary"
+                    onClick={() =>
+                      addTask({
+                        title: String(row["title"] ?? "Growth opportunity"),
+                        module: taskModuleFor(String(row["module"] ?? "growth")),
+                        priority: row["impact"] != null ? priorityLabel(Number(row["impact"])).toLowerCase() : "medium",
+                        notes: row["recommended_action"] ? String(row["recommended_action"]) : undefined,
+                      })
+                    }
+                    disabled={saveTask.isPending}
+                  >
+                    <CheckSquare className="mr-1 size-3" /> Task
+                  </Button>
+                ),
               },
             ]}
           />

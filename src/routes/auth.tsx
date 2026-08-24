@@ -91,7 +91,14 @@ function AuthPage() {
                 <Input id="email" name="email" type="email" required placeholder="you@business.com" />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="password">Password</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password">Password</Label>
+                  {mode === "signin" && (
+                    <Link to="/forgot-password" className="text-xs text-muted-foreground hover:text-primary">
+                      Forgot password?
+                    </Link>
+                  )}
+                </div>
                 <Input
                   id="password"
                   name="password"

@@ -29,6 +29,13 @@
       "when": 1787560712797,
       "tag": "0003_familiar_marvel_apes",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1787562160102,
+      "tag": "0004_panoramic_celestials",
+      "breakpoints": true
     }
   ]
 }

@@ -94,6 +94,7 @@ function FinancePage() {
         <CrudPanel
           table="revenue_transactions"
           orgId={orgId}
+          csv
           title="Income"
           description="Every sale, order or payment received"
           emptyTitle="No income recorded"
@@ -128,6 +129,7 @@ function FinancePage() {
         <CrudPanel
           table="expenses"
           orgId={orgId}
+          csv
           title="Expenses"
           description="Costs that eat into profit"
           emptyTitle="No expenses recorded"

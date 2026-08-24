@@ -10,6 +10,7 @@
 import cron from "node-cron";
 import { syncAllConnections } from "./oauth/presence-sync.server";
 import { sendWeeklyDigests } from "./notify/weekly-digest.server";
+import { createOverdueReminders } from "./notify/overdue-reminders.server";
 
 declare global {
   // eslint-disable-next-line no-var
@@ -45,6 +46,20 @@ export function startCronJobs(): void {
         console.log(`[cron] weekly digest: ${sent}/${results.length} organization(s) emailed`);
       } catch (e) {
         console.error("[cron] weekly digest failed to run:", e);
+      }
+    },
+    { timezone: "UTC" },
+  );
+
+  // 08:00 UTC daily — nudge business owners about overdue follow-ups/tasks.
+  cron.schedule(
+    "0 8 * * *",
+    async () => {
+      try {
+        const { created } = await createOverdueReminders();
+        console.log(`[cron] overdue reminders: ${created} notification(s) created`);
+      } catch (e) {
+        console.error("[cron] overdue reminders failed to run:", e);
       }
     },
     { timezone: "UTC" },

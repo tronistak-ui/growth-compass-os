@@ -75,6 +75,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
+      // Fallback only — every route sets its own, more specific title via
+      // its own head() meta, which wins over this one. Without it, pages
+      // rendered outside normal route matching (404, the root error
+      // boundary) show a blank browser tab.
+      { title: "TrendZypher Growth OS" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
