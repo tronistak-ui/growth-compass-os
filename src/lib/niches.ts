@@ -92,6 +92,79 @@ export const LEAD_STAGES = [
   { key: "lost", label: "Lost" },
 ] as const;
 
+/**
+ * Per-niche labels for the same six canonical stage keys above — the status
+ * values written to leads.status never change, so computeMetrics keeps
+ * working untouched. Only the words shown for each stage change, so a
+ * dental pipeline reads "Consultation Booked" where a generic one reads
+ * "Qualified", without a separate pipeline engine per niche.
+ */
+const LEAD_STAGE_LABELS: Record<string, Partial<Record<(typeof LEAD_STAGES)[number]["key"], string>>> = {
+  Dental: {
+    qualified: "Consultation Booked",
+    proposal: "Treatment Proposed",
+    won: "Treatment Accepted",
+    lost: "Declined",
+  },
+  "Salon / Barber": {
+    qualified: "Booking Requested",
+    proposal: "Booked",
+    won: "Visited",
+    lost: "No-show / Lost",
+  },
+  "Gym / Fitness": {
+    qualified: "Trial Booked",
+    proposal: "Trial Attended",
+    won: "Member",
+    lost: "Didn't Join",
+  },
+  Restaurant: {
+    new: "New Enquiry",
+    qualified: "Reservation Requested",
+    proposal: "Reservation Confirmed",
+    won: "Dined",
+    lost: "Cancelled",
+  },
+  Hotel: {
+    qualified: "Availability Checked",
+    proposal: "Quote Sent",
+    won: "Booked",
+    lost: "Booked Elsewhere",
+  },
+  "Real Estate": {
+    qualified: "Site Visit Scheduled",
+    proposal: "Negotiation",
+    won: "Closed Won",
+    lost: "Closed Lost",
+  },
+  Photography: {
+    qualified: "Date Checked",
+    proposal: "Quote Sent",
+    won: "Booked",
+    lost: "Booked Elsewhere",
+  },
+  "Home / Local Services": {
+    qualified: "Site Assessed",
+    proposal: "Quote Sent",
+    won: "Job Won",
+    lost: "Job Lost",
+  },
+};
+
+const ECOM_LEAD_LABELS: Partial<Record<(typeof LEAD_STAGES)[number]["key"], string>> = {
+  qualified: "Cart / Enquiry",
+  proposal: "Order Placed",
+  won: "Delivered",
+  lost: "Abandoned",
+};
+
+/** Niche-appropriate labels for the same six canonical lead stages. */
+export function leadStages(niche?: string | null): { key: string; label: string }[] {
+  const overrides =
+    (niche && LEAD_STAGE_LABELS[niche]) || (niche && ECOM_LIKE.includes(niche) ? ECOM_LEAD_LABELS : {});
+  return LEAD_STAGES.map((s) => ({ key: s.key, label: overrides[s.key] ?? s.label }));
+}
+
 export const EXPENSE_CATEGORIES = [
   "marketing",
   "operations",

@@ -4,10 +4,10 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/growth/shell";
 import { CrudPanel } from "@/components/growth/crud";
 import { KanbanBoard } from "@/components/growth/kanban";
-import { StatCard } from "@/components/growth/ui";
+import { StatCard, StatusPill } from "@/components/growth/ui";
 import { Button } from "@/components/ui/button";
 import { useActiveOrg, useRows, useSaveRow, type Row } from "@/lib/growth";
-import { LEAD_STAGES, CHANNELS, lexicon } from "@/lib/niches";
+import { CHANNELS, lexicon, leadStages } from "@/lib/niches";
 import { pct, money } from "@/lib/metrics";
 import { cn } from "@/lib/utils";
 
@@ -41,6 +41,7 @@ function LeadsPage() {
   const due = rows.filter((r) => r["next_follow_up"] && r["next_follow_up"] <= today).length;
 
   const [view, setView] = useState<"table" | "kanban">("table");
+  const stages = leadStages(org?.["niche"]);
 
   const campaignOptions = (campaigns ?? []).map((c) => ({
     value: String(c["id"]),
@@ -65,7 +66,11 @@ function LeadsPage() {
       name: "status",
       label: "Stage",
       type: "select" as const,
-      options: LEAD_STAGES.map((s) => ({ value: s.key, label: s.label })),
+      options: stages.map((s) => ({ value: s.key, label: s.label })),
+      render: (r: Row) => {
+        const raw = String(r["status"] ?? "new");
+        return <StatusPill value={raw} label={stages.find((s) => s.key === raw)?.label} />;
+      },
     },
     { name: "value", label: "Estimated value", type: "number" as const },
     ...(campaignOptions.length
@@ -146,7 +151,7 @@ function LeadsPage() {
         />
       ) : (
         <KanbanBoard
-          stages={LEAD_STAGES.map((s) => ({ key: s.key, label: s.label }))}
+          stages={stages}
           rows={rows}
           fields={fields}
           defaults={{ status: "new" } as Row}

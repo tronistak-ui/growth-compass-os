@@ -109,22 +109,18 @@ export function computeMetrics(data: {
   );
   const cac = newCustomersThisMonth > 0 ? marketingSpendThisMonth / newCustomersThisMonth : 0;
 
-  const spendByCustomer = new Map<string, number>();
-  for (const t of revenue) {
-    const cid = t["customer_id"];
-    if (!cid) continue;
-    spendByCustomer.set(cid, (spendByCustomer.get(cid) ?? 0) + Number(t["amount"] ?? 0));
-  }
+  const purchaseStats = purchaseStatsByCustomer(revenue);
   // LTV needs enough repeat behavior to be meaningful — with fewer than 3
   // customers who've bought more than once, it's just AOV wearing a new name.
   const ltv =
     repeatCustomers >= 3
-      ? [...spendByCustomer.values()].reduce((a, v) => a + v, 0) / spendByCustomer.size
+      ? [...purchaseStats.values()].reduce((a, s) => a + s.total, 0) / purchaseStats.size
       : 0;
 
   const channelPerformance = channelBreakdown(data);
   const crossSellOpportunities = crossSellPairs(revenue, customers);
-  const rebookingCandidates = findRebookingCandidates(revenue, customers);
+  const rebookingCandidates = findRebookingCandidates(purchaseStats, customers);
+  const customerSegments = segmentCustomers(purchaseStats, customers);
 
   return {
     totalLeads: leads.length,
@@ -158,6 +154,7 @@ export function computeMetrics(data: {
     channelPerformance,
     crossSellOpportunities,
     rebookingCandidates,
+    customerSegments,
   };
 }
 
@@ -235,56 +232,116 @@ export type RebookingCandidate = {
   reason: string;
 };
 
+type PurchaseStats = { total: number; count: number; dates: string[] };
+
+/** Per-customer total spend, purchase count and every purchase date. */
+function purchaseStatsByCustomer(revenue: Row[]): Map<string, PurchaseStats> {
+  const map = new Map<string, PurchaseStats>();
+  for (const t of revenue) {
+    const cid = t["customer_id"];
+    if (!cid) continue;
+    if (!map.has(cid)) map.set(cid, { total: 0, count: 0, dates: [] });
+    const s = map.get(cid)!;
+    s.total += Number(t["amount"] ?? 0);
+    s.count += 1;
+    if (t["occurred_on"]) s.dates.push(String(t["occurred_on"]));
+  }
+  return map;
+}
+
+const DAY_MS = 86_400_000;
+
+/**
+ * Days since the most recent purchase, and the customer's own typical gap
+ * between purchases (null with fewer than 2 purchases) — the shared basis
+ * for both rebooking candidates and customer segmentation, so "overdue"
+ * means the same thing in both places.
+ */
+function purchaseRhythm(stats: PurchaseStats | undefined, now = Date.now()) {
+  const dates = (stats?.dates ?? []).slice().sort();
+  if (dates.length === 0) return { daysSinceLast: null, typicalGapDays: null, lastDate: null };
+  const lastDate = dates[dates.length - 1]!;
+  const daysSinceLast = Math.round((now - new Date(lastDate).getTime()) / DAY_MS);
+  let typicalGapDays: number | null = null;
+  if (dates.length >= 2) {
+    const gaps: number[] = [];
+    for (let i = 1; i < dates.length; i++) {
+      gaps.push((new Date(dates[i]!).getTime() - new Date(dates[i - 1]!).getTime()) / DAY_MS);
+    }
+    typicalGapDays = Math.round(gaps.reduce((a, v) => a + v, 0) / gaps.length);
+  }
+  return { daysSinceLast, typicalGapDays, lastDate };
+}
+
 /**
  * Customers who are overdue for a repeat purchase — either past their own
  * historical buying rhythm (>=2 purchases), or a single-purchase customer
  * who has gone quiet for 45+ days. The output is a pitch list, not a count.
  */
-function findRebookingCandidates(revenue: Row[], customers: Row[]): RebookingCandidate[] {
-  const datesByCustomer = new Map<string, string[]>();
-  for (const t of revenue) {
-    const cid = t["customer_id"];
-    if (!cid || !t["occurred_on"]) continue;
-    if (!datesByCustomer.has(cid)) datesByCustomer.set(cid, []);
-    datesByCustomer.get(cid)!.push(String(t["occurred_on"]));
-  }
-
-  const today = Date.now();
-  const DAY = 86_400_000;
+function findRebookingCandidates(
+  purchaseStats: Map<string, PurchaseStats>,
+  customers: Row[],
+): RebookingCandidate[] {
   const out: RebookingCandidate[] = [];
 
   for (const c of customers) {
-    const dates = (datesByCustomer.get(c["id"]) ?? []).slice().sort();
-    if (dates.length === 0) continue;
-    const last = new Date(dates[dates.length - 1]!).getTime();
-    const daysSinceLastPurchase = Math.round((today - last) / DAY);
-
-    let typicalGapDays: number | null = null;
-    if (dates.length >= 2) {
-      const gaps: number[] = [];
-      for (let i = 1; i < dates.length; i++) {
-        gaps.push((new Date(dates[i]!).getTime() - new Date(dates[i - 1]!).getTime()) / DAY);
-      }
-      typicalGapDays = Math.round(gaps.reduce((a, v) => a + v, 0) / gaps.length);
-    }
+    const { daysSinceLast, typicalGapDays, lastDate } = purchaseRhythm(purchaseStats.get(c["id"]));
+    if (daysSinceLast === null) continue;
 
     const threshold = typicalGapDays !== null ? Math.max(typicalGapDays * 1.5, 14) : 45;
-    if (daysSinceLastPurchase < threshold) continue;
+    if (daysSinceLast < threshold) continue;
 
     out.push({
       customerId: c["id"],
       customerName: String(c["name"] ?? "Customer"),
-      lastPurchase: dates[dates.length - 1]!,
-      daysSinceLastPurchase,
+      lastPurchase: lastDate!,
+      daysSinceLastPurchase: daysSinceLast,
       typicalGapDays,
       reason:
         typicalGapDays !== null
-          ? `Usually buys every ~${typicalGapDays} days — it's been ${daysSinceLastPurchase}`
-          : `First purchase was ${daysSinceLastPurchase} days ago with no repeat since`,
+          ? `Usually buys every ~${typicalGapDays} days — it's been ${daysSinceLast}`
+          : `First purchase was ${daysSinceLast} days ago with no repeat since`,
     });
   }
 
   return out.sort((a, b) => b.daysSinceLastPurchase - a.daysSinceLastPurchase);
+}
+
+export type CustomerSegment = "VIP" | "New" | "Active" | "At Risk" | "Lost";
+
+/**
+ * New / Active / At Risk / Lost / VIP, computed from recency (relative to
+ * the customer's own buying rhythm) and spend rank — not stored, always
+ * reflects live purchase history.
+ */
+function segmentCustomers(
+  purchaseStats: Map<string, PurchaseStats>,
+  customers: Row[],
+): Map<string, CustomerSegment> {
+  const totals = [...purchaseStats.values()].map((s) => s.total).sort((a, b) => a - b);
+  // Top-20th-percentile spend, among customers who've actually bought something.
+  const vipThreshold = totals.length ? totals[Math.floor(totals.length * 0.8)]! : Infinity;
+
+  const out = new Map<string, CustomerSegment>();
+  for (const c of customers) {
+    const stats = purchaseStats.get(c["id"]);
+    const { daysSinceLast, typicalGapDays } = purchaseRhythm(stats);
+
+    if (daysSinceLast === null) {
+      out.set(c["id"], "New");
+      continue;
+    }
+
+    const lostAt = typicalGapDays !== null ? typicalGapDays * 3 : 120;
+    const atRiskAt = typicalGapDays !== null ? typicalGapDays * 1.5 : 45;
+
+    if (daysSinceLast > lostAt) out.set(c["id"], "Lost");
+    else if (daysSinceLast > atRiskAt) out.set(c["id"], "At Risk");
+    else if (stats!.count >= 3 && stats!.total >= vipThreshold && vipThreshold > 0)
+      out.set(c["id"], "VIP");
+    else out.set(c["id"], "Active");
+  }
+  return out;
 }
 
 export type ChannelPerformance = {
@@ -747,4 +804,45 @@ export function buildAdvisorSummary(m: Metrics, insights: Insight[], currency = 
       };
 
   return { sourcing, leaking, revenue, blocker, nextAction, topOpportunity };
+}
+
+export type BrandStage = "Unknown" | "Recognized" | "Trusted" | "Preferred";
+
+export type BrandProgression = {
+  stage: BrandStage;
+  score: number;
+  breakdown: { presence: number; positioning: number; socialProof: number };
+  priority: string;
+};
+
+const BRAND_STAGE_PRIORITY: Record<BrandStage, string> = {
+  Unknown:
+    "Get discoverable first — claim your Google Business Profile and put up a website or landing page.",
+  Recognized:
+    "Build trust — collect your first 10 reviews and finish every field of your positioning statement.",
+  Trusted:
+    "Convert trust into preference — publish testimonials everywhere and keep the message identical across channels.",
+  Preferred:
+    "Protect the position — keep reviews fresh, watch competitor moves, and don't let consistency slip.",
+};
+
+/**
+ * Unknown → Recognized → Trusted → Preferred, blended from presence score,
+ * positioning score, and social proof (review count + rating — the only
+ * proof signal currently captured). No new data required.
+ */
+export function brandProgression(
+  presence: number,
+  positioning: number,
+  presenceProfile: Row | null | undefined,
+): BrandProgression {
+  const reviews = Number(presenceProfile?.["google_reviews"] ?? 0);
+  const rating = Number(presenceProfile?.["google_rating"] ?? 0);
+  const socialProof =
+    reviews > 0 ? Math.round((Math.min(reviews, 20) / 20) * 60 + (rating / 5) * 40) : 0;
+
+  const score = Math.round((presence + positioning + socialProof) / 3);
+  const stage: BrandStage = score < 30 ? "Unknown" : score < 55 ? "Recognized" : score < 80 ? "Trusted" : "Preferred";
+
+  return { stage, score, breakdown: { presence, positioning, socialProof }, priority: BRAND_STAGE_PRIORITY[stage] };
 }

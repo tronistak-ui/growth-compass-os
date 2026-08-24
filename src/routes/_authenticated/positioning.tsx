@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useActiveOrg, useSingletonRow, useUpsertSingleton, useRows } from "@/lib/growth";
-import { positioningScore } from "@/lib/metrics";
+import { positioningScore, presenceScore, brandProgression, type BrandStage } from "@/lib/metrics";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/positioning")({
   head: () => ({
@@ -43,6 +44,7 @@ const FIELDS: [string, string, string][] = [
 function PositioningPage() {
   const { orgId } = useActiveOrg();
   const { data: row } = useSingletonRow("positioning", orgId);
+  const { data: presence } = useSingletonRow("presence_profiles", orgId);
   const { data: competitors } = useRows("competitors", orgId, { order: { column: "created_at" } });
   const upsert = useUpsertSingleton("positioning", orgId);
   const [form, setForm] = useState<Record<string, any>>({});
@@ -67,6 +69,7 @@ function PositioningPage() {
   ).length;
   const clarity = Math.round((filledFields / FIELDS.length) * 85);
   const compDepth = Math.round((Math.min(compCount, 3) / 3) * 100);
+  const brand = brandProgression(presenceScore(presence).total, score, presence);
 
   return (
     <AppShell
@@ -89,6 +92,20 @@ function PositioningPage() {
             <Meter label={`Clarity — ${filledFields}/${FIELDS.length} fields filled`} value={clarity} />
             <Meter label="Competitor research" value={compDepth} />
           </div>
+        </div>
+      </Panel>
+
+      <Panel
+        title="Brand progression"
+        description="Unknown → Recognized → Trusted → Preferred, blended from presence, positioning and reviews"
+        className="mb-4"
+      >
+        <BrandStageTracker stage={brand.stage} />
+        <p className="mt-3 text-sm text-muted-foreground">{brand.priority}</p>
+        <div className="mt-4 grid grid-cols-3 gap-2.5">
+          <Meter label="Presence" value={brand.breakdown.presence} />
+          <Meter label="Positioning" value={brand.breakdown.positioning} />
+          <Meter label="Social proof" value={brand.breakdown.socialProof} />
         </div>
       </Panel>
 
@@ -128,5 +145,32 @@ function PositioningPage() {
         />
       </div>
     </AppShell>
+  );
+}
+
+const BRAND_STAGES: BrandStage[] = ["Unknown", "Recognized", "Trusted", "Preferred"];
+
+function BrandStageTracker({ stage }: { stage: BrandStage }) {
+  const idx = BRAND_STAGES.indexOf(stage);
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {BRAND_STAGES.map((s, i) => (
+        <div key={s} className="flex items-center gap-1.5">
+          <div
+            className={cn(
+              "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium whitespace-nowrap",
+              i === idx
+                ? "border-primary bg-primary text-primary-foreground"
+                : i < idx
+                  ? "border-primary/40 bg-primary/10 text-primary"
+                  : "border-border bg-card text-muted-foreground",
+            )}
+          >
+            <span className="num">{i + 1}</span> {s}
+          </div>
+          {i < BRAND_STAGES.length - 1 && <div className="h-px w-3 bg-border" />}
+        </div>
+      ))}
+    </div>
   );
 }

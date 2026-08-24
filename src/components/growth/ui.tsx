@@ -178,7 +178,13 @@ export function Meter({ label, value }: { label: string; value: number }) {
   );
 }
 
-export function StatusPill({ value }: { value: string }) {
+/**
+ * `value` drives the color (it's the canonical, universal status the rest
+ * of the app computes against) — `label` optionally overrides the
+ * displayed text, e.g. a niche-specific stage name for the same underlying
+ * "qualified" status.
+ */
+export function StatusPill({ value, label }: { value: string; label?: string | undefined }) {
   const tone: Record<string, string> = {
     won: "bg-success/10 text-success",
     completed: "bg-success/10 text-success",
@@ -201,7 +207,7 @@ export function StatusPill({ value }: { value: string }) {
         tone[value] ?? "bg-muted text-muted-foreground",
       )}
     >
-      {String(value).replace(/_/g, " ")}
+      {(label ?? String(value)).replace(/_/g, " ")}
     </span>
   );
 }

@@ -24,7 +24,8 @@ import {
 import { useActiveOrg, useRows, useSaveRow, type Row } from "@/lib/growth";
 import { CHANNELS, lexicon, EXPENSE_CATEGORIES } from "@/lib/niches";
 import { useOrgData } from "@/lib/use-org-data";
-import { money, pct, sum } from "@/lib/metrics";
+import { money, pct, sum, type CustomerSegment } from "@/lib/metrics";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/customers")({
   head: () => ({
@@ -72,6 +73,16 @@ function CustomersPage() {
     spend.set(cid, cur);
   }
 
+  const lifecycleSegments = d.metrics.customerSegments;
+  const segmentCounts: Record<CustomerSegment, number> = {
+    VIP: 0,
+    New: 0,
+    Active: 0,
+    "At Risk": 0,
+    Lost: 0,
+  };
+  for (const seg of lifecycleSegments.values()) segmentCounts[seg]++;
+
   return (
     <AppShell title={lex.customers} subtitle="Lightweight CRM built for repeat business">
       <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -79,6 +90,17 @@ function CustomersPage() {
         <StatCard label="New this month" value={d.metrics.newCustomersThisMonth} tone="positive" />
         <StatCard label="Repeat rate" value={pct(d.metrics.repeatRate, 0)} />
         <StatCard label="Avg. lifetime value" value={money(ltv, currency)} />
+      </div>
+
+      <div className="mb-5 grid grid-cols-5 gap-2">
+        {(["VIP", "New", "Active", "At Risk", "Lost"] as const).map((seg) => (
+          <div key={seg} className="rounded-lg border border-border bg-surface-2 px-2.5 py-2 text-center">
+            <div className="num text-lg font-semibold text-ink">{segmentCounts[seg]}</div>
+            <div className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
+              {seg}
+            </div>
+          </div>
+        ))}
       </div>
 
       <CrudPanel
@@ -98,6 +120,12 @@ function CustomersPage() {
             label: "Source",
             type: "select",
             options: CHANNELS.map((c) => ({ value: c, label: c })),
+          },
+          {
+            name: "lifecycle_segment",
+            label: "Segment",
+            inForm: false,
+            render: (row) => <SegmentPill segment={lifecycleSegments.get(row["id"]) ?? "New"} />,
           },
           {
             name: "spent",
@@ -332,5 +360,21 @@ function MiniStat({ label, value }: { label: string; value: string }) {
       <div className="text-[10px] tracking-wider text-muted-foreground uppercase">{label}</div>
       <div className="num mt-0.5 text-sm font-semibold text-ink">{value}</div>
     </div>
+  );
+}
+
+const SEGMENT_TONE: Record<CustomerSegment, string> = {
+  VIP: "bg-primary/15 text-primary",
+  New: "bg-info/10 text-info",
+  Active: "bg-success/10 text-success",
+  "At Risk": "bg-warning/10 text-warning",
+  Lost: "bg-destructive/10 text-destructive",
+};
+
+function SegmentPill({ segment }: { segment: CustomerSegment }) {
+  return (
+    <span className={cn("inline-flex rounded-md px-2 py-0.5 text-[11px] font-medium", SEGMENT_TONE[segment])}>
+      {segment}
+    </span>
   );
 }
