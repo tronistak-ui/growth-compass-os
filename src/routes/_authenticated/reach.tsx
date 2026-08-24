@@ -1,10 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/growth/shell";
 import { CrudPanel } from "@/components/growth/crud";
-import { StatCard } from "@/components/growth/ui";
+import { Panel, StatCard } from "@/components/growth/ui";
 import { useActiveOrg, useRows } from "@/lib/growth";
+import { useOrgData } from "@/lib/use-org-data";
 import { CHANNELS, nicheConfig } from "@/lib/niches";
 import { money, sum } from "@/lib/metrics";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/reach")({
   head: () => ({
@@ -37,6 +39,8 @@ function ReachPage() {
   const { org, orgId } = useActiveOrg();
   const currency = (org?.["currency"] as string) ?? "USD";
   const cfg = nicheConfig(org?.["niche"]);
+  const d = useOrgData();
+  const channelPerformance = d.metrics.channelPerformance;
   const { data: offers } = useRows("offers", orgId, { order: { column: "created_at" } });
   const { data: campaigns } = useRows("campaigns", orgId, { order: { column: "created_at" } });
   const { data: segments } = useRows("customer_segments", orgId, {
@@ -81,6 +85,52 @@ function ReachPage() {
         />
         <StatCard label="Active budget" value={money(budget, currency)} />
       </div>
+
+      <Panel
+        title="Channel performance"
+        description="Where customers and revenue actually come from, and what they cost to win"
+        className="mb-4"
+      >
+        {channelPerformance.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No leads or customers with a source yet — add one to see channel performance.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-xs tracking-wide text-muted-foreground uppercase">
+                  <th className="py-2 pr-4 font-medium">Channel</th>
+                  <th className="py-2 pr-4 font-medium">Leads</th>
+                  <th className="py-2 pr-4 font-medium">Customers</th>
+                  <th className="py-2 pr-4 font-medium">Revenue</th>
+                  <th className="py-2 pr-4 font-medium">Spend</th>
+                  <th className="py-2 pr-4 font-medium">CAC</th>
+                </tr>
+              </thead>
+              <tbody>
+                {channelPerformance.map((ch) => (
+                  <tr key={ch.channel} className="border-b last:border-0">
+                    <td className="py-2 pr-4 font-medium capitalize">{ch.channel}</td>
+                    <td className="num py-2 pr-4">{ch.leads}</td>
+                    <td className="num py-2 pr-4">{ch.customers}</td>
+                    <td className="num py-2 pr-4">{money(ch.revenue, currency)}</td>
+                    <td className="num py-2 pr-4">{ch.spend > 0 ? money(ch.spend, currency) : "—"}</td>
+                    <td
+                      className={cn(
+                        "num py-2 pr-4",
+                        ch.cac > 0 && ch.revenue / Math.max(ch.customers, 1) < ch.cac && "text-destructive",
+                      )}
+                    >
+                      {ch.cac > 0 ? money(ch.cac, currency) : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Panel>
 
       <div className="space-y-4">
         <CrudPanel

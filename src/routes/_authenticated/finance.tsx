@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/growth/shell";
 import { CrudPanel } from "@/components/growth/crud";
-import { StatCard } from "@/components/growth/ui";
+import { Panel, StatCard } from "@/components/growth/ui";
 import { useActiveOrg, useRows } from "@/lib/growth";
 import { useOrgData } from "@/lib/use-org-data";
 import { CHANNELS, EXPENSE_CATEGORIES, nicheConfig } from "@/lib/niches";
@@ -38,10 +38,15 @@ function FinancePage() {
     ...EXPENSE_CATEGORIES.filter((x) => !cfg.expenseCategories.includes(x)),
   ].map((x) => ({ value: x, label: x }));
   const { data: customers } = useRows("customers", orgId, { order: { column: "created_at" } });
+  const { data: campaigns } = useRows("campaigns", orgId, { order: { column: "created_at" } });
 
   const customerOptions = (customers ?? []).map((r) => ({
     value: String(r["id"]),
     label: String(r["name"]),
+  }));
+  const campaignOptions = (campaigns ?? []).map((r) => ({
+    value: String(r["id"]),
+    label: `${String(r["name"])} (${String(r["channel"])})`,
   }));
 
   return (
@@ -56,6 +61,34 @@ function FinancePage() {
         />
         <StatCard label="Margin" value={pct(m.margin)} />
       </div>
+
+      <Panel
+        title="Customer economics"
+        description="What a new customer costs to acquire, against what they're worth"
+        className="mb-4"
+      >
+        <div className="grid gap-3 sm:grid-cols-2">
+          <StatCard
+            label="Customer acquisition cost"
+            value={m.cac > 0 ? money(m.cac, c) : "—"}
+            hint={
+              m.cac > 0
+                ? "Marketing spend this month ÷ new customers this month"
+                : "Log marketing expenses linked to a campaign to see CAC"
+            }
+            tone={m.cac > 0 && m.ltv > 0 ? (m.cac > m.ltv ? "negative" : "positive") : "default"}
+          />
+          <StatCard
+            label="Customer lifetime value"
+            value={m.ltv > 0 ? money(m.ltv, c) : "—"}
+            hint={
+              m.ltv > 0
+                ? "Average total spend per customer, all time"
+                : "Needs at least 3 repeat customers to be meaningful"
+            }
+          />
+        </div>
+      </Panel>
 
       <div className="space-y-4">
         <CrudPanel
@@ -111,6 +144,17 @@ function FinancePage() {
               options: expenseOptions,
             },
             { name: "description", label: "Description" },
+            ...(campaignOptions.length
+              ? [
+                  {
+                    name: "campaign_id",
+                    label: "Campaign (for CAC)",
+                    type: "select" as const,
+                    options: campaignOptions,
+                    inTable: false,
+                  },
+                ]
+              : []),
             { name: "payment_method", label: "Payment method", inTable: false },
             { name: "notes", label: "Notes", type: "textarea", inTable: false },
           ]}

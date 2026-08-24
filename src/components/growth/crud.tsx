@@ -100,7 +100,14 @@ export function CrudPanel({
                 .split(",")
                 .map((s: string) => s.trim())
                 .filter(Boolean);
-      else values[f.name] = raw === "" ? null : raw;
+      // An untouched select has no way to mean "explicitly cleared" — the UI
+      // never offers a blank option — so omit it rather than sending null.
+      // Sending null would violate NOT NULL columns that rely on a DB
+      // default (status, channel, category, ...) whenever a select is left
+      // at its initial, un-interacted state on create.
+      else if (f.type === "select") {
+        if (raw !== "" && raw != null) values[f.name] = raw;
+      } else values[f.name] = raw === "" ? null : raw;
     }
     save.mutate(
       { ...defaults, ...values },

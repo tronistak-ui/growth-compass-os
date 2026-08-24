@@ -194,6 +194,9 @@ export const expenses = pgTable(
     description: text("description"),
     amount: numeric("amount", { precision: 12, scale: 2 }).notNull().default("0"),
     paymentMethod: text("payment_method"),
+    // Added for CAC: links marketing spend to the campaign (and therefore
+    // channel) it paid for, so acquisition cost can be computed per channel.
+    campaignId: uuid("campaign_id").references(() => campaigns.id, { onDelete: "set null" }),
     notes: text("notes"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

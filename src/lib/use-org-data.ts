@@ -24,7 +24,8 @@ export function useOrgData() {
   });
 
   const presence_score = presenceScore(presence.data);
-  const insights = buildInsights(metrics, presence_score.total);
+  const currency = (org?.["currency"] as string) ?? "USD";
+  const insights = buildInsights(metrics, presence_score.total, currency);
 
   const isLoading =
     orgLoading || leads.isLoading || customers.isLoading || revenue.isLoading || expenses.isLoading;
@@ -41,7 +42,7 @@ export function useOrgData() {
   return {
     org,
     orgId,
-    currency: (org?.["currency"] as string) ?? "USD",
+    currency,
     leads: leads.data ?? [],
     customers: customers.data ?? [],
     revenue: revenue.data ?? [],

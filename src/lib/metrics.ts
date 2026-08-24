@@ -103,6 +103,27 @@ export function computeMetrics(data: {
   const leadsBySource = groupCount(leads, "source");
   const expensesByCategory = groupSum(expenses, "category");
 
+  // --- CAC / LTV (Wave 1: cost visibility) ---
+  const marketingSpendThisMonth = sum(
+    expThis.filter((e) => e["category"] === "marketing"),
+  );
+  const cac = newCustomersThisMonth > 0 ? marketingSpendThisMonth / newCustomersThisMonth : 0;
+
+  const spendByCustomer = new Map<string, number>();
+  for (const t of revenue) {
+    const cid = t["customer_id"];
+    if (!cid) continue;
+    spendByCustomer.set(cid, (spendByCustomer.get(cid) ?? 0) + Number(t["amount"] ?? 0));
+  }
+  // LTV needs enough repeat behavior to be meaningful — with fewer than 3
+  // customers who've bought more than once, it's just AOV wearing a new name.
+  const ltv =
+    repeatCustomers >= 3
+      ? [...spendByCustomer.values()].reduce((a, v) => a + v, 0) / spendByCustomer.size
+      : 0;
+
+  const channelPerformance = channelBreakdown(data);
+
   return {
     totalLeads: leads.length,
     qualifiedLeads: qualified.length,
@@ -130,7 +151,68 @@ export function computeMetrics(data: {
     byProduct,
     leadsBySource,
     expensesByCategory,
+    cac,
+    ltv,
+    channelPerformance,
   };
+}
+
+export type ChannelPerformance = {
+  channel: string;
+  leads: number;
+  customers: number;
+  revenue: number;
+  spend: number;
+  cac: number;
+};
+
+/**
+ * Per-channel Source → Leads → Customers → Revenue, plus marketing spend
+ * (via expenses.campaign_id → campaigns.channel) and the resulting CAC.
+ * A channel only gets a CAC figure once it has both spend and customers —
+ * otherwise the number is meaningless, not just small.
+ */
+function channelBreakdown(data: {
+  leads: Row[];
+  customers: Row[];
+  revenue: Row[];
+  expenses: Row[];
+  campaigns: Row[];
+}): ChannelPerformance[] {
+  const { leads, customers, revenue, expenses, campaigns } = data;
+  const channelByCampaign = new Map(campaigns.map((c) => [c["id"], c["channel"]]));
+
+  const channels = new Set<string>();
+  for (const l of leads) if (l["source"]) channels.add(String(l["source"]));
+  for (const c of customers) if (c["source"]) channels.add(String(c["source"]));
+
+  const spendByChannel = new Map<string, number>();
+  for (const e of expenses) {
+    const channel = channelByCampaign.get(e["campaign_id"]);
+    if (!channel) continue;
+    spendByChannel.set(channel, (spendByChannel.get(channel) ?? 0) + Number(e["amount"] ?? 0));
+    channels.add(channel);
+  }
+
+  return [...channels]
+    .map((channel) => {
+      const channelLeads = leads.filter((l) => l["source"] === channel);
+      const channelCustomers = customers.filter((c) => c["source"] === channel);
+      const channelRevenue = sum(
+        revenue.filter((r) => channelCustomers.some((c) => c["id"] === r["customer_id"])),
+      );
+      const spend = spendByChannel.get(channel) ?? 0;
+      const cac = spend > 0 && channelCustomers.length > 0 ? spend / channelCustomers.length : 0;
+      return {
+        channel,
+        leads: channelLeads.length,
+        customers: channelCustomers.length,
+        revenue: channelRevenue,
+        spend,
+        cac,
+      };
+    })
+    .sort((a, b) => b.revenue - a.revenue);
 }
 
 export function groupSum(rows: Row[], field: string, valueField = "amount") {
@@ -194,7 +276,7 @@ export type Insight = {
  * No AI, no randomness — the same inputs always produce the same output,
  * which is what makes these safe to persist as growth opportunities.
  */
-export function buildInsights(m: Metrics, presence: number): Insight[] {
+export function buildInsights(m: Metrics, presence: number, currency = "USD"): Insight[] {
   const out: Insight[] = [];
 
   if (m.uncontacted > 0)
@@ -282,6 +364,20 @@ export function buildInsights(m: Metrics, presence: number): Insight[] {
       target: "20%+",
       impact: 75,
       action: "Raise price on the top-selling item or reduce the largest cost line.",
+    });
+
+  if (m.cac > 0 && m.ltv > 0 && m.cac > m.ltv)
+    out.push({
+      key: "cac_exceeds_ltv",
+      title: `Acquisition costs more than customers are worth`,
+      detail: `CAC is ${money(m.cac, currency)} against an LTV of ${money(m.ltv, currency)} — every new customer this month is a net loss before they buy again.`,
+      tone: "critical",
+      module: "Finance",
+      lever: "better_margin",
+      current: `CAC ${money(m.cac, currency)}`,
+      target: `below LTV (${money(m.ltv, currency)})`,
+      impact: 92,
+      action: "Pause the highest-CAC channel and shift spend toward the cheapest one until CAC drops under LTV.",
     });
 
   if (m.lostLeads >= 3)
