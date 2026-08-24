@@ -77,6 +77,7 @@ function AdminPage() {
   const [notesFor, setNotesFor] = useState<OrgRow | null>(null);
   const [notesDraft, setNotesDraft] = useState("");
   const [savingNotes, setSavingNotes] = useState(false);
+  const [claimSecret, setClaimSecret] = useState("");
   const [billingFor, setBillingFor] = useState<OrgRow | null>(null);
   const [billingStatusDraft, setBillingStatusDraft] = useState<"active" | "overdue" | "suspended">("active");
   const [billingDueDraft, setBillingDueDraft] = useState("");
@@ -107,7 +108,7 @@ function AdminPage() {
 
   async function claimAdmin() {
     try {
-      const granted = await claimPlatformAdmin();
+      const granted = await claimPlatformAdmin({ data: { secret: claimSecret } });
       if (granted) {
         toast.success("Platform admin access granted");
         void qc.invalidateQueries();
@@ -134,11 +135,21 @@ function AdminPage() {
       <AppShell title="Admin">
         <Panel title="Not authorised">
           <p className="text-sm text-muted-foreground">You do not have access to the admin area.</p>
-          <Button className="mt-4" variant="outline" onClick={claimAdmin}>
-            Claim platform admin
-          </Button>
+          <div className="mt-4 max-w-xs space-y-2">
+            <Input
+              type="password"
+              value={claimSecret}
+              onChange={(e) => setClaimSecret(e.target.value)}
+              placeholder="Admin claim secret"
+              autoComplete="off"
+            />
+            <Button variant="outline" onClick={claimAdmin} disabled={!claimSecret}>
+              Claim platform admin
+            </Button>
+          </div>
           <p className="mt-2 text-xs text-muted-foreground">
-            Only available while no platform admin exists yet.
+            Only works once, while no platform admin exists yet, and only with the correct secret
+            (PLATFORM_ADMIN_CLAIM_SECRET on the server).
           </p>
         </Panel>
       </AppShell>

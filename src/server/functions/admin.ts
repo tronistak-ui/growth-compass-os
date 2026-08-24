@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { createHash, timingSafeEqual } from "node:crypto";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { requireAuth } from "../auth/middleware";
@@ -137,14 +138,29 @@ export const revokeRole = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/** Fixed-length digest compare — avoids both a naive === timing leak and the length-mismatch crash timingSafeEqual throws on unequal-length buffers. */
+function secretsMatch(a: string, b: string): boolean {
+  const ha = createHash("sha256").update(a).digest();
+  const hb = createHash("sha256").update(b).digest();
+  return timingSafeEqual(ha, hb);
+}
+
+const claimPlatformAdminInput = z.object({ secret: z.string() });
+
 /**
- * Mirrors claim_platform_admin(): the first user to call this becomes
- * platform_admin, and only while no admin exists yet. Every call after that
- * just reports whether the caller already holds it.
+ * Bootstrapping platform_admin used to be first-come-first-served — whoever
+ * clicked the button first after deployment won, including a client who got
+ * there before the operator did. Now the very first claim additionally
+ * needs PLATFORM_ADMIN_CLAIM_SECRET, a value only the deployer knows and
+ * sets once via the environment — so the window is closed by a secret, not
+ * by hoping nobody else visits /admin first. Every call after an admin
+ * already exists just reports whether the caller already holds it, same as
+ * before, and needs no secret since nothing is being granted.
  */
 export const claimPlatformAdmin = createServerFn({ method: "POST" })
   .middleware([requireAuth])
-  .handler(async ({ context }) => {
+  .validator((input: unknown) => claimPlatformAdminInput.parse(input))
+  .handler(async ({ data, context }) => {
     const [existingAdmin] = await db
       .select({ userId: userRoles.userId })
       .from(userRoles)
@@ -154,6 +170,15 @@ export const claimPlatformAdmin = createServerFn({ method: "POST" })
       const roles = await getUserRoles(context.userId);
       return roles.includes("platform_admin");
     }
+
+    const expected = process.env["PLATFORM_ADMIN_CLAIM_SECRET"];
+    if (!expected) {
+      throw new Error("Admin claiming isn't configured — set PLATFORM_ADMIN_CLAIM_SECRET and try again.");
+    }
+    if (!secretsMatch(data.secret, expected)) {
+      throw new Error("Incorrect claim secret");
+    }
+
     await db.insert(userRoles).values({ userId: context.userId, role: "platform_admin" }).onConflictDoNothing();
     return true;
   });
