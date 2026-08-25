@@ -92,7 +92,7 @@ const STEPS = [
   {
     n: "02",
     title: "Capture the real numbers",
-    body: "Add leads, customers, campaigns, revenue and expenses. Everything lives in one multi-tenant workspace.",
+    body: "Add leads, customers, campaigns, revenue and expenses. Everything lives in one connected workspace, built around your business.",
   },
   {
     n: "03",
@@ -162,7 +162,7 @@ function Landing() {
               <div className="mt-8 flex flex-wrap items-center gap-3">
                 <Link to="/auth">
                   <Button size="lg">
-                    Start free <ArrowRight className="ml-1.5 size-4" />
+                    Get started <ArrowRight className="ml-1.5 size-4" />
                   </Button>
                 </Link>
                 <a href="#modules">
@@ -172,13 +172,15 @@ function Landing() {
                 </a>
               </div>
               <ul className="mt-6 flex flex-wrap gap-x-6 gap-y-2 text-xs text-muted-foreground">
-                {["No credit card", "Multi-business workspaces", "Your data stays private"].map(
-                  (t) => (
-                    <li key={t} className="flex items-center gap-1.5">
-                      <Check className="size-3.5 text-success" /> {t}
-                    </li>
-                  ),
-                )}
+                {[
+                  "Hosted on your own server",
+                  "Nothing shared with anyone else",
+                  "Yours after setup — no subscription",
+                ].map((t) => (
+                  <li key={t} className="flex items-center gap-1.5">
+                    <Check className="size-3.5 text-success" /> {t}
+                  </li>
+                ))}
               </ul>
             </div>
 
@@ -268,7 +270,7 @@ function Landing() {
                   "Catch follow-ups before they go cold",
                   "See which channel actually produces paying customers",
                   "Track presence gaps that cost you discovery",
-                  "Run several businesses from one login",
+                  "No recurring bill chipping away at your margin",
                 ].map((t) => (
                   <li key={t} className="flex items-start gap-2.5 text-sm text-foreground/90">
                     <Check className="mt-0.5 size-4 shrink-0 text-success" />
