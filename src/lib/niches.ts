@@ -378,6 +378,12 @@ const INSIGHT_BENCHMARKS: Record<string, Partial<InsightBenchmarks>> = {
     marginTarget: 20,
     typicalRepeatGapDays: 30,
   },
+  Wellness: {
+    conversionRateTarget: 30,
+    repeatRateTarget: 35,
+    marginTarget: 25,
+    typicalRepeatGapDays: 30,
+  },
   Dental: { conversionRateTarget: 30, repeatRateTarget: 20, marginTarget: 30, typicalRepeatGapDays: 180 },
   "Real Estate": {
     conversionRateTarget: 10,
@@ -397,6 +403,12 @@ const INSIGHT_BENCHMARKS: Record<string, Partial<InsightBenchmarks>> = {
     repeatRateTarget: 20,
     marginTarget: 20,
     typicalRepeatGapDays: 120,
+  },
+  "Auto / Detailing": {
+    conversionRateTarget: 30,
+    repeatRateTarget: 25,
+    marginTarget: 20,
+    typicalRepeatGapDays: 75,
   },
 };
 
