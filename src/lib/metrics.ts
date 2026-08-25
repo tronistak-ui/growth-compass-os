@@ -150,6 +150,12 @@ export function computeMetrics(
     margin,
     followUpsDue,
     uncontacted,
+    // Transaction *counts*, not just dollar totals — a single insight rule
+    // (see buildInsights) uses these to decide whether this month's margin
+    // or expense-growth figures are a real signal or just noise from one or
+    // two transactions.
+    revenueTxCountThisMonth: revThis.length,
+    expenseTxCountThisMonth: expThis.length,
     bySource,
     byProduct,
     leadsBySource,
@@ -508,7 +514,13 @@ export function buildInsights(
       action: "Clear the overdue follow-up list today and set the next date on each lead.",
     });
 
-  if (m.totalLeads >= 5 && m.conversionRate < benchmarks.conversionRateTarget)
+  // Minimum-N gates below (10 leads, 8 customers, 3+ transactions) exist
+  // because a percentage from too few observations is noise, not signal —
+  // with 5 leads, one won/lost swings the rate by 20 points; with 3
+  // customers, "repeat rate" can only ever read 0%, 33%, 66% or 100%. These
+  // aren't rigorous confidence intervals, just enough of a floor that a
+  // single lucky or unlucky week can't trigger a false alarm.
+  if (m.totalLeads >= 10 && m.conversionRate < benchmarks.conversionRateTarget)
     out.push({
       key: "low_conversion",
       title: `Conversion rate is ${m.conversionRate.toFixed(1)}%`,
@@ -522,7 +534,7 @@ export function buildInsights(
       action: "Tighten the offer and response time before spending more on reach.",
     });
 
-  if (m.totalCustomers >= 3 && m.repeatRate < benchmarks.repeatRateTarget)
+  if (m.totalCustomers >= 8 && m.repeatRate < benchmarks.repeatRateTarget)
     out.push({
       key: "low_repeat_rate",
       title: `Repeat customer rate is ${m.repeatRate.toFixed(0)}%`,
@@ -536,7 +548,15 @@ export function buildInsights(
       action: "Run a win-back message to every customer who has bought only once.",
     });
 
-  if (m.expensesLastMonth > 0 && m.revenueLastMonth > 0) {
+  // A month-over-month growth-rate comparison off one or two transactions
+  // swings wildly with a single large invoice — require at least 3 revenue
+  // and 3 expense transactions this month before trusting the comparison.
+  if (
+    m.expensesLastMonth > 0 &&
+    m.revenueLastMonth > 0 &&
+    m.revenueTxCountThisMonth >= 3 &&
+    m.expenseTxCountThisMonth >= 3
+  ) {
     const expGrowth = ((m.expensesThisMonth - m.expensesLastMonth) / m.expensesLastMonth) * 100;
     if (expGrowth > m.revenueGrowth + 5)
       out.push({
@@ -553,7 +573,9 @@ export function buildInsights(
       });
   }
 
-  if (m.margin < benchmarks.marginTarget && m.revenueThisMonth > 0)
+  // Same reasoning as above — a margin computed off one or two sales isn't
+  // representative of how the business actually runs.
+  if (m.margin < benchmarks.marginTarget && m.revenueTxCountThisMonth >= 3)
     out.push({
       key: "thin_margin",
       title: `Profit margin is ${m.margin.toFixed(0)}%`,
@@ -655,7 +677,40 @@ export function buildInsights(
       action: "Record the last 30 days of sales in Finance.",
     });
 
-  return out.sort((a, b) => b.impact - a.impact);
+  return dedupeInsights(out, m).sort((a, b) => b.impact - a.impact);
+}
+
+/**
+ * Drops an insight when a more specific one already explains the same
+ * underlying problem — otherwise a business with one real issue (say, leads
+ * never getting worked) sees 3 separate warnings that are really one cause
+ * restated three ways, diluting the "here's the one thing to fix" promise
+ * of the advisor. Deliberately just a short list of explicit, authored
+ * relationships rather than clustering or correlation — the same rule-based
+ * spirit as the rest of this file, just applied to the output instead of
+ * the input.
+ */
+function dedupeInsights(insights: Insight[], m: Metrics): Insight[] {
+  const has = (key: string) => insights.some((i) => i.key === key);
+  return insights.filter((i) => {
+    // Low conversion is usually just the downstream effect of leads never
+    // being worked — only keep it as its own line item once uncontacted
+    // leads aren't the obvious explanation for the low rate.
+    if (
+      i.key === "low_conversion" &&
+      has("uncontacted_leads") &&
+      m.uncontacted >= m.totalLeads * 0.3
+    ) {
+      return false;
+    }
+    // CAC exceeding LTV, or expenses outgrowing revenue, both already
+    // explain "margin is thin" more specifically than restating the margin
+    // number on its own.
+    if (i.key === "thin_margin" && (has("cac_exceeds_ltv") || has("expenses_outpacing_revenue"))) {
+      return false;
+    }
+    return true;
+  });
 }
 
 function cap(s: string) {
