@@ -8,3 +8,6 @@
 export const BRAND_NAME = __BRAND_NAME__;
 export const BRAND_TAGLINE = __BRAND_TAGLINE__;
 export const BRAND_FULL = `${BRAND_NAME} ${BRAND_TAGLINE}`;
+// Empty string ("") if unset — check for that, don't assume it's set. The
+// "Contact support" link only renders when this is non-empty.
+export const SUPPORT_EMAIL = __SUPPORT_EMAIL__;

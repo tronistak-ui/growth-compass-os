@@ -28,7 +28,9 @@ import {
 // Every table growth.ts's generic hooks (useRows/useSaveRow/useDeleteRow) can
 // address. This mirrors the set of tables that carried the generated
 // "org members manage %s" RLS policy in the source Supabase schema.
-const ROW_TABLES: Record<string, PgTable> = {
+// Exported so exportOrgData (organizations.ts) can walk the same table list
+// instead of hand-maintaining a second one that could drift out of sync.
+export const ROW_TABLES: Record<string, PgTable> = {
   customer_segments: customerSegments,
   offers,
   campaigns,
@@ -45,7 +47,7 @@ const ROW_TABLES: Record<string, PgTable> = {
 };
 
 // One-row-per-organization tables (useSingletonRow/useUpsertSingleton).
-const SINGLETON_TABLES: Record<string, PgTable> = {
+export const SINGLETON_TABLES: Record<string, PgTable> = {
   presence_profiles: presenceProfiles,
   positioning,
 };

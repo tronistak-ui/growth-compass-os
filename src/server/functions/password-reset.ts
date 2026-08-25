@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { getCookie } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { randomBytes, createHash } from "node:crypto";
-import { eq, and, isNull, ne } from "drizzle-orm";
+import { eq, and, isNull, ne, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { passwordResetTokens, sessions, users } from "@/db/schema";
 import { findUserByEmail } from "../db-helpers/users.server";
@@ -92,7 +92,13 @@ export const resetPassword = createServerFn({ method: "POST" })
 
     const passwordHash = await hashPassword(data.newPassword);
     await db.transaction(async (tx) => {
-      await tx.update(users).set({ passwordHash }).where(eq(users.id, row.userId));
+      // Clicking this link already proves the email is theirs — verify it
+      // too if it wasn't already, without clobbering an earlier
+      // verification timestamp if one exists.
+      await tx
+        .update(users)
+        .set({ passwordHash, emailVerifiedAt: sql`coalesce(${users.emailVerifiedAt}, now())` })
+        .where(eq(users.id, row.userId));
       await tx
         .update(passwordResetTokens)
         .set({ usedAt: new Date() })

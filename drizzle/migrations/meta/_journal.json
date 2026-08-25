@@ -43,6 +43,20 @@
       "when": 1787566083958,
       "tag": "0005_dazzling_spencer_smythe",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787653725840,
+      "tag": "0006_lying_wrecker",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787656751635,
+      "tag": "0007_broad_overlord",
+      "breakpoints": true
     }
   ]
 }

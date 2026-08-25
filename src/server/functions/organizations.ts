@@ -3,8 +3,9 @@ import { z } from "zod";
 import { and, eq, desc } from "drizzle-orm";
 import { db } from "@/db/client";
 import { requireAuth } from "../auth/middleware";
-import { hasAnyRole } from "../authz.server";
-import { toWireRow, toWireRows } from "../wire";
+import { hasAnyRole, requireOrgMember } from "../authz.server";
+import { toWireRow, toWireRows, wireColumn } from "../wire";
+import { ROW_TABLES, SINGLETON_TABLES } from "./rows";
 import { organizations, organizationMembers, presenceProfiles, positioning } from "@/db/schema";
 
 /** Organizations the caller belongs to — platform_admin/support/auditor see every org. */
@@ -175,3 +176,69 @@ async function requireAdminOrSupport(userId: string) {
     throw new Error("Not authorized");
   }
 }
+
+const orgIdInput = z.object({ orgId: z.string().uuid() });
+
+/**
+ * Everything this business owns, as one JSON file — the self-service half
+ * of the Privacy Policy's export promise. Walks the exact same table
+ * registry the generic CRUD layer uses (rows.ts's ROW_TABLES/
+ * SINGLETON_TABLES) so a table added there is automatically included here
+ * too, with nothing to remember to update in two places.
+ */
+export const exportOrgData = createServerFn({ method: "GET" })
+  .middleware([requireAuth])
+  .validator((input: unknown) => orgIdInput.parse(input))
+  .handler(async ({ data, context }) => {
+    await requireOrgMember(context.userId, data.orgId);
+
+    const [org] = await db.select().from(organizations).where(eq(organizations.id, data.orgId)).limit(1);
+    if (!org) throw new Error("Business not found");
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const tables: Record<string, Record<string, any>[]> = {};
+    for (const [name, table] of [...Object.entries(ROW_TABLES), ...Object.entries(SINGLETON_TABLES)]) {
+      const orgCol = wireColumn(table, "organization_id");
+      const rows = await db.select().from(table).where(eq(orgCol, data.orgId));
+      tables[name] = toWireRows(table, rows as Record<string, unknown>[]);
+    }
+
+    return {
+      exported_at: new Date().toISOString(),
+      organization: toWireRow(organizations, org),
+      tables,
+    };
+  });
+
+const deleteOrgInput = z.object({ orgId: z.string().uuid(), confirmName: z.string() });
+
+/**
+ * Permanently deletes the business and everything in it — the self-service
+ * half of the Privacy Policy's deletion promise. Deliberately stricter than
+ * requireOrgWrite: only the account owner (or platform staff helping them)
+ * can do this, not just any team member with normal write access, and the
+ * business name must be typed exactly as a confirmation gate independent
+ * of whatever the client-side "are you sure" dialog already did.
+ *
+ * No manual cleanup needed beyond this one delete — every org-scoped table
+ * references organizations.id with onDelete: cascade, so Postgres removes
+ * every lead, customer, revenue row, the works, in the same transaction.
+ */
+export const deleteOrganization = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .validator((input: unknown) => deleteOrgInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const [org] = await db.select().from(organizations).where(eq(organizations.id, data.orgId)).limit(1);
+    if (!org) throw new Error("Business not found");
+
+    const isPlatformStaff = await hasAnyRole(context.userId, ["platform_admin", "support"]);
+    if (!isPlatformStaff && org.ownerId !== context.userId) {
+      throw new Error("Only the account owner can delete this business");
+    }
+    if (data.confirmName !== org.name) {
+      throw new Error("That doesn't match the business name — type it exactly to confirm");
+    }
+
+    await db.delete(organizations).where(eq(organizations.id, data.orgId));
+    return { ok: true };
+  });

@@ -2,6 +2,8 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
+import { toast } from "sonner";
+import { resendVerificationEmail } from "@/server/functions/email-verification";
 import {
   LayoutDashboard,
   Globe,
@@ -137,12 +139,25 @@ export function AppShell({
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [resending, setResending] = useState(false);
 
   async function signOut() {
     await qc.cancelQueries();
     qc.clear();
     await signOutSession();
     navigate({ to: "/auth", replace: true });
+  }
+
+  async function resendVerification() {
+    setResending(true);
+    try {
+      await resendVerificationEmail();
+      toast.success("Verification email sent — check your inbox");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not send verification email");
+    } finally {
+      setResending(false);
+    }
   }
 
   const billingStatus = org?.["billing_status"] as string | undefined;
@@ -344,6 +359,19 @@ export function AppShell({
             <div className="mb-4 rounded-lg border border-warning/30 bg-warning/10 px-4 py-2.5 text-sm text-warning">
               Your payment is overdue{nextDue ? ` (was due ${new Date(nextDue).toLocaleDateString()})` : ""} —
               please settle it soon to avoid losing access.
+            </div>
+          )}
+          {profile && !profile["email_verified_at"] && (
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-info/30 bg-info/10 px-4 py-2.5 text-sm text-info">
+              <span>Verify your email ({profile["email"]}) to keep account recovery working.</span>
+              <button
+                type="button"
+                onClick={resendVerification}
+                disabled={resending}
+                className="font-medium underline underline-offset-2 hover:no-underline disabled:opacity-60"
+              >
+                {resending ? "Sending…" : "Resend link"}
+              </button>
             </div>
           )}
           {children}

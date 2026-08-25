@@ -7,13 +7,14 @@ import { createSession, deleteSession } from "../db-helpers/sessions.server";
 import { createUser, findUserByEmail } from "../db-helpers/users.server";
 import { getSessionUser, requireAuth } from "../auth/middleware";
 import { checkRateLimit, getClientIp } from "../auth/rate-limit.server";
+import { sendVerificationEmail } from "../auth/email-verification.server";
 import { getUserRoles } from "../authz.server";
 import { db } from "@/db/client";
 import { userRoles } from "@/db/schema";
 import { verifySessionCookie } from "../auth/session-cookie.server";
 import { getCookie } from "@tanstack/react-start/server";
 
-function setSessionCookie(sessionId: string) {
+export function setSessionCookie(sessionId: string) {
   setCookie(SESSION_COOKIE_NAME, signSessionCookie(sessionId), {
     httpOnly: true,
     sameSite: "lax",
@@ -23,12 +24,21 @@ function setSessionCookie(sessionId: string) {
   });
 }
 
-function userToWire(user: { id: string; email: string; fullName: string | null; avatarUrl: string | null; createdAt: Date; updatedAt: Date }) {
+function userToWire(user: {
+  id: string;
+  email: string;
+  fullName: string | null;
+  avatarUrl: string | null;
+  emailVerifiedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}) {
   return {
     id: user.id,
     email: user.email,
     full_name: user.fullName,
     avatar_url: user.avatarUrl,
+    email_verified_at: user.emailVerifiedAt,
     created_at: user.createdAt,
     updated_at: user.updatedAt,
   };
@@ -58,6 +68,11 @@ export const signUp = createServerFn({ method: "POST" })
     });
     // Mirrors handle_new_user(): every new account starts as business_owner.
     await db.insert(userRoles).values({ userId: user.id, role: "business_owner" });
+    // Best-effort — a slow/failed verification email shouldn't block signup
+    // itself, so this doesn't get awaited into the error path above.
+    void sendVerificationEmail(user.id, user.email).catch((e) =>
+      console.error("[signup] failed to send verification email:", e),
+    );
 
     const session = await createSession({
       userId: user.id,

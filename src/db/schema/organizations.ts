@@ -67,11 +67,41 @@ export const organizationMembers = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    // Stored but not enforced anywhere in authz.server.ts — every member row
+    // grants identical read/write access regardless of this value. It's a
+    // display label ("Owner" vs "Staff" in the Team panel), not a
+    // permission tier. A real per-role permission split is a separate,
+    // bigger feature this doesn't attempt.
     role: text("role").notNull().default("owner"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     unique("organization_members_org_user_unique").on(table.organizationId, table.userId),
     index("idx_members_user").on(table.userId),
+  ],
+);
+
+// Staff invites — same one-time-hashed-token pattern as
+// passwordResetTokens. Only a hash of the token is stored, so a database
+// read alone can never produce a usable invite link.
+export const organizationInvites = pgTable(
+  "organization_invites",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    role: text("role").notNull().default("staff"),
+    tokenHash: text("token_hash").notNull(),
+    invitedByUserId: uuid("invited_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("idx_invites_org").on(table.organizationId),
+    index("idx_invites_email").on(table.email),
   ],
 );

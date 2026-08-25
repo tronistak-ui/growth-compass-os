@@ -86,12 +86,24 @@ function RapidEntryPage() {
       <div className="grid gap-4 lg:grid-cols-[380px_1fr]">
         <Panel title="Log an entry" description="Submit and it clears — ready for the next one">
           <Tabs value={tab} onValueChange={(v) => setTab(v as Kind)}>
+            {/* px-1 + text-xs override the default px-3/text-sm — five tabs
+                in this width otherwise clips "Customer" on a narrow phone. */}
             <TabsList className="grid w-full grid-cols-5">
-              <TabsTrigger value="revenue">Sale</TabsTrigger>
-              <TabsTrigger value="expense">Expense</TabsTrigger>
-              <TabsTrigger value="lead">Lead</TabsTrigger>
-              <TabsTrigger value="customer">Customer</TabsTrigger>
-              <TabsTrigger value="task">Task</TabsTrigger>
+              <TabsTrigger value="revenue" className="px-1 text-xs">
+                Sale
+              </TabsTrigger>
+              <TabsTrigger value="expense" className="px-1 text-xs">
+                Expense
+              </TabsTrigger>
+              <TabsTrigger value="lead" className="px-1 text-xs">
+                Lead
+              </TabsTrigger>
+              <TabsTrigger value="customer" className="px-1 text-xs">
+                Customer
+              </TabsTrigger>
+              <TabsTrigger value="task" className="px-1 text-xs">
+                Task
+              </TabsTrigger>
             </TabsList>
             <TabsContent value="revenue" className="mt-4">
               <RevenueForm orgId={orgId} currency={currency} onLogged={record} />

@@ -4,6 +4,7 @@ import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { useActiveOrg, useSaveRow } from "@/lib/growth";
 import { CHANNELS, EXPENSE_CATEGORIES } from "@/lib/niches";
+import { todayInBusinessTimezone } from "@/lib/date";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,9 +20,11 @@ import {
 
 /**
  * A floating "+" reachable from any page — the most repeated actions
- * (log a lead, a customer, an expense, a task) without navigating away
- * from whatever you're looking at. Deliberately a handful of fields, not
- * the full form — this is for capturing something fast, not editing it.
+ * (log a sale, a lead, a customer, an expense, a task) without navigating
+ * away from whatever you're looking at. Deliberately a handful of fields,
+ * not the full form — this is for capturing something fast, not editing
+ * it. No date field on purpose (unlike Rapid Entry's Sale/Expense tabs) —
+ * this is for "something just happened", not backdating a catch-up batch.
  */
 export function QuickAdd() {
   const { orgId, org } = useActiveOrg();
@@ -45,13 +48,17 @@ export function QuickAdd() {
           <DialogHeader>
             <DialogTitle>Quick add</DialogTitle>
           </DialogHeader>
-          <Tabs defaultValue="lead">
-            <TabsList className="grid w-full grid-cols-4">
+          <Tabs defaultValue="sale">
+            <TabsList className="grid w-full grid-cols-5">
+              <TabsTrigger value="sale">Sale</TabsTrigger>
               <TabsTrigger value="lead">Lead</TabsTrigger>
               <TabsTrigger value="customer">Customer</TabsTrigger>
               <TabsTrigger value="expense">Expense</TabsTrigger>
               <TabsTrigger value="task">Task</TabsTrigger>
             </TabsList>
+            <TabsContent value="sale" className="mt-4">
+              <QuickRevenueForm orgId={orgId} currency={String(org?.["currency"] ?? "USD")} onDone={() => setOpen(false)} />
+            </TabsContent>
             <TabsContent value="lead" className="mt-4">
               <QuickLeadForm orgId={orgId} onDone={() => setOpen(false)} />
             </TabsContent>
@@ -68,6 +75,61 @@ export function QuickAdd() {
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+function QuickRevenueForm({
+  orgId,
+  currency,
+  onDone,
+}: {
+  orgId: string;
+  currency: string;
+  onDone: () => void;
+}) {
+  const save = useSaveRow("revenue_transactions", orgId);
+  const [amount, setAmount] = useState("");
+  const [product, setProduct] = useState("");
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const n = Number(amount);
+    if (!n || n <= 0) {
+      toast.error("Add an amount");
+      return;
+    }
+    const values: Record<string, unknown> = { amount: n, occurred_on: todayInBusinessTimezone() };
+    if (product) values["product_service"] = product;
+    save.mutate(values, {
+      onSuccess: () => {
+        toast.success("Sale logged");
+        onDone();
+      },
+      onError: (e: any) => toast.error(e.message ?? "Could not log sale"),
+    });
+  }
+
+  return (
+    <form onSubmit={submit} className="space-y-3">
+      <div className="space-y-1.5">
+        <Label>Amount ({currency})</Label>
+        <Input
+          type="number"
+          step="any"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          autoFocus
+          required
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label>What was sold</Label>
+        <Input value={product} onChange={(e) => setProduct(e.target.value)} placeholder="Optional" />
+      </div>
+      <Button type="submit" className="w-full" disabled={save.isPending}>
+        {save.isPending ? "Logging…" : "Log sale"}
+      </Button>
+    </form>
   );
 }
 
@@ -204,10 +266,7 @@ function QuickExpenseForm({
       toast.error("Add an amount");
       return;
     }
-    const values: Record<string, unknown> = {
-      amount: n,
-      occurred_on: new Date().toISOString().slice(0, 10),
-    };
+    const values: Record<string, unknown> = { amount: n, occurred_on: todayInBusinessTimezone() };
     if (category) values["category"] = category;
     if (description) values["description"] = description;
     save.mutate(values, {

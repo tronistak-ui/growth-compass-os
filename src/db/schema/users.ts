@@ -9,6 +9,10 @@ export const users = pgTable("users", {
   passwordHash: text("password_hash").notNull(),
   fullName: text("full_name"),
   avatarUrl: text("avatar_url"),
+  // Null until they click a verification link — set directly (no link
+  // needed) when an account is created via an accepted team invite or a
+  // password-reset link, since both already prove the email is theirs.
+  emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -41,6 +45,19 @@ export const passwordResetTokens = pgTable("password_reset_tokens", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// Same one-time-hashed-token shape as passwordResetTokens.
+export const emailVerificationTokens = pgTable("email_verification_tokens", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  tokenHash: text("token_hash").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  usedAt: timestamp("used_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export type User = typeof users.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
 export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
+export type EmailVerificationToken = typeof emailVerificationTokens.$inferSelect;

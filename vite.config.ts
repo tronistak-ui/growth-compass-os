@@ -35,6 +35,10 @@ export default defineConfig(({ mode }) => {
     define: {
       __BRAND_NAME__: JSON.stringify(env["BRAND_NAME"] || "TrendZypher"),
       __BRAND_TAGLINE__: JSON.stringify(env["BRAND_TAGLINE"] || "Growth OS"),
+      // Empty by default, not a placeholder address — a wrong/fake support
+      // contact shown to a real client is worse than no link at all, so the
+      // UI hides the "Contact support" link entirely until this is set.
+      __SUPPORT_EMAIL__: JSON.stringify(env["SUPPORT_EMAIL"] || ""),
     },
     server: {
       // Lets a free localtunnel (loca.lt) URL reach the dev server — needed
