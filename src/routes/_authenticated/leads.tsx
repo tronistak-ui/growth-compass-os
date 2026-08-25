@@ -196,6 +196,7 @@ function LeadsPage() {
           defaults={{ status: "new" } as Row}
           statusField="status"
           save={saveKanban}
+          onActivity={(row) => setDetailId(String(row["id"]))}
           money={(v) => money(v, currency)}
         />
       )}

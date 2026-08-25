@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from "react";
-import { Pencil, Plus } from "lucide-react";
+import { Pencil, Plus, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +34,7 @@ export function KanbanBoard({
   statusField = "status",
   save,
   onEdit,
+  onActivity,
   money,
 }: {
   stages: Stage[];
@@ -43,6 +44,8 @@ export function KanbanBoard({
   statusField?: string;
   save: (values: Row, opts?: any) => void;
   onEdit?: (row: Row) => void;
+  /** Optional second action per card, separate from the edit-fields dialog — e.g. logging an interaction. */
+  onActivity?: (row: Row) => void;
   money?: (v: number) => string;
 }) {
   const [editing, setEditing] = useState<Row | null>(null);
@@ -110,6 +113,7 @@ export function KanbanBoard({
                 statusField={statusField}
                 onOpen={() => open(row)}
                 onChangeStage={(s) => changeStage(row, s)}
+                onActivity={onActivity ? () => onActivity(row) : undefined}
                 money={money}
               />
             ))}
@@ -154,6 +158,7 @@ function KanbanCard({
   statusField,
   onOpen,
   onChangeStage,
+  onActivity,
   money,
 }: {
   row: Row;
@@ -162,6 +167,7 @@ function KanbanCard({
   statusField: string;
   onOpen: () => void;
   onChangeStage: (s: string) => void;
+  onActivity?: (() => void) | undefined;
   money: ((v: number) => string) | undefined;
 }) {
   const valueField = fields.find((f) => f.name === "value" || f.name === "amount");
@@ -181,7 +187,18 @@ function KanbanCard({
             </div>
           )}
         </button>
-        <Button variant="ghost" size="icon" className="size-6 shrink-0" onClick={onOpen}>
+        {onActivity && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-6 shrink-0"
+            title="Log activity"
+            onClick={onActivity}
+          >
+            <MessageSquare className="size-3" />
+          </Button>
+        )}
+        <Button variant="ghost" size="icon" className="size-6 shrink-0" title="Edit" onClick={onOpen}>
           <Pencil className="size-3" />
         </Button>
       </div>
