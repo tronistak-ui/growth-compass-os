@@ -265,6 +265,12 @@ const NICHE_CONFIG: Record<string, Partial<Omit<NicheConfig, "lexicon">>> = {
     northStar: "Active members",
     offerWord: "Membership",
   },
+  Wellness: {
+    priorityChannels: ["instagram", "google", "referral", "whatsapp"],
+    expenseCategories: ["materials", "staff", "marketing", "rent"],
+    northStar: "Repeat client rate",
+    offerWord: "Session",
+  },
   Dental: {
     priorityChannels: ["google", "referral", "facebook", "whatsapp"],
     expenseCategories: ["materials", "staff", "marketing", "rent"],
@@ -294,6 +300,12 @@ const NICHE_CONFIG: Record<string, Partial<Omit<NicheConfig, "lexicon">>> = {
     expenseCategories: ["materials", "staff", "marketing", "delivery"],
     northStar: "Jobs completed",
     offerWord: "Service",
+  },
+  "Auto / Detailing": {
+    priorityChannels: ["google", "referral", "instagram", "whatsapp"],
+    expenseCategories: ["materials", "staff", "marketing", "delivery"],
+    northStar: "Cars detailed per month",
+    offerWord: "Package",
   },
 };
 
