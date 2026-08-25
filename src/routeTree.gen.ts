@@ -25,6 +25,7 @@ import { Route as AuthenticatedLeadsRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated/onboarding'
 import { Route as AuthenticatedPositioningRouteImport } from './routes/_authenticated/positioning'
 import { Route as AuthenticatedPresenceRouteImport } from './routes/_authenticated/presence'
+import { Route as AuthenticatedRapidEntryRouteImport } from './routes/_authenticated/rapid-entry'
 import { Route as AuthenticatedReachRouteImport } from './routes/_authenticated/reach'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
@@ -113,6 +114,11 @@ const AuthenticatedPresenceRoute = AuthenticatedPresenceRouteImport.update({
   path: '/presence',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedRapidEntryRoute = AuthenticatedRapidEntryRouteImport.update({
+  id: '/rapid-entry',
+  path: '/rapid-entry',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedReachRoute = AuthenticatedReachRouteImport.update({
   id: '/reach',
   path: '/reach',
@@ -165,6 +171,7 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/positioning': typeof AuthenticatedPositioningRoute
   '/presence': typeof AuthenticatedPresenceRoute
+  '/rapid-entry': typeof AuthenticatedRapidEntryRoute
   '/reach': typeof AuthenticatedReachRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/settings': typeof AuthenticatedSettingsRoute
@@ -189,6 +196,7 @@ export interface FileRoutesByTo {
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/positioning': typeof AuthenticatedPositioningRoute
   '/presence': typeof AuthenticatedPresenceRoute
+  '/rapid-entry': typeof AuthenticatedRapidEntryRoute
   '/reach': typeof AuthenticatedReachRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/settings': typeof AuthenticatedSettingsRoute
@@ -215,6 +223,7 @@ export interface FileRoutesById {
   '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
   '/_authenticated/positioning': typeof AuthenticatedPositioningRoute
   '/_authenticated/presence': typeof AuthenticatedPresenceRoute
+  '/_authenticated/rapid-entry': typeof AuthenticatedRapidEntryRoute
   '/_authenticated/reach': typeof AuthenticatedReachRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
@@ -241,6 +250,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/positioning'
     | '/presence'
+    | '/rapid-entry'
     | '/reach'
     | '/reports'
     | '/settings'
@@ -265,6 +275,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/positioning'
     | '/presence'
+    | '/rapid-entry'
     | '/reach'
     | '/reports'
     | '/settings'
@@ -290,6 +301,7 @@ export interface FileRouteTypes {
     | '/_authenticated/onboarding'
     | '/_authenticated/positioning'
     | '/_authenticated/presence'
+    | '/_authenticated/rapid-entry'
     | '/_authenticated/reach'
     | '/_authenticated/reports'
     | '/_authenticated/settings'
@@ -424,6 +436,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPresenceRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/rapid-entry': {
+      id: '/_authenticated/rapid-entry'
+      path: '/rapid-entry'
+      fullPath: '/rapid-entry'
+      preLoaderRoute: typeof AuthenticatedRapidEntryRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/reach': {
       id: '/_authenticated/reach'
       path: '/reach'
@@ -488,6 +507,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedOnboardingRoute: typeof AuthenticatedOnboardingRoute
   AuthenticatedPositioningRoute: typeof AuthenticatedPositioningRoute
   AuthenticatedPresenceRoute: typeof AuthenticatedPresenceRoute
+  AuthenticatedRapidEntryRoute: typeof AuthenticatedRapidEntryRoute
   AuthenticatedReachRoute: typeof AuthenticatedReachRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
@@ -506,6 +526,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedOnboardingRoute: AuthenticatedOnboardingRoute,
   AuthenticatedPositioningRoute: AuthenticatedPositioningRoute,
   AuthenticatedPresenceRoute: AuthenticatedPresenceRoute,
+  AuthenticatedRapidEntryRoute: AuthenticatedRapidEntryRoute,
   AuthenticatedReachRoute: AuthenticatedReachRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,

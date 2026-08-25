@@ -24,6 +24,7 @@ import {
   Moon,
   Bell,
   Search,
+  Zap,
 } from "lucide-react";
 import {
   useActiveOrg,
@@ -196,6 +197,19 @@ export function AppShell({
               </Link>
             );
           })}
+          <Link
+            to="/rapid-entry"
+            onClick={() => setOpen(false)}
+            className={cn(
+              "mt-2 flex items-center gap-2.5 rounded-lg border border-sidebar-border px-3 py-2 text-[13px] font-medium transition-colors",
+              pathname === "/rapid-entry"
+                ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                : "text-sidebar-foreground/75 hover:bg-sidebar-accent/60",
+            )}
+          >
+            <Zap className="size-4" />
+            Rapid Entry
+          </Link>
           {isAdmin && (
             <Link
               to="/admin"
