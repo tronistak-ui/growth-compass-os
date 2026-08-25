@@ -1,11 +1,15 @@
 import { createServerFn } from "@tanstack/react-start";
+import { getCookie } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { randomBytes, createHash } from "node:crypto";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, ne } from "drizzle-orm";
 import { db } from "@/db/client";
 import { passwordResetTokens, sessions, users } from "@/db/schema";
 import { findUserByEmail } from "../db-helpers/users.server";
-import { hashPassword } from "../auth/password.server";
+import { hashPassword, verifyPassword } from "../auth/password.server";
+import { SESSION_COOKIE_NAME, verifySessionCookie } from "../auth/session-cookie.server";
+import { requireAuth } from "../auth/middleware";
+import { checkRateLimit, getClientIp } from "../auth/rate-limit.server";
 import { sendMail } from "../notify/mailer.server";
 
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
@@ -24,6 +28,10 @@ const requestInput = z.object({ email: z.string().email() });
 export const requestPasswordReset = createServerFn({ method: "POST" })
   .validator((input: unknown) => requestInput.parse(input))
   .handler(async ({ data }) => {
+    // Keyed by IP+email — stops both a flood of reset emails to one address
+    // and a script that cycles through many addresses from one IP.
+    checkRateLimit(`reset-request:${getClientIp()}:${data.email.toLowerCase()}`, 5, 15 * 60 * 1000);
+
     const user = await findUserByEmail(data.email);
     if (user) {
       const token = randomBytes(32).toString("base64url");
@@ -66,6 +74,10 @@ const resetInput = z.object({ token: z.string().min(1), newPassword: z.string().
 export const resetPassword = createServerFn({ method: "POST" })
   .validator((input: unknown) => resetInput.parse(input))
   .handler(async ({ data }) => {
+    // Token entropy already makes guessing infeasible; this is defense in
+    // depth against a sustained brute-force script.
+    checkRateLimit(`reset-consume:${getClientIp()}`, 10, 15 * 60 * 1000);
+
     const tokenHash = hashToken(data.token);
     const [row] = await db
       .select()
@@ -88,6 +100,39 @@ export const resetPassword = createServerFn({ method: "POST" })
       // requested it — the old password shouldn't still be "logged in"
       // anywhere once it's been changed.
       await tx.delete(sessions).where(eq(sessions.userId, row.userId));
+    });
+
+    return { ok: true };
+  });
+
+const changePasswordInput = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(6),
+});
+
+/** For a signed-in user changing their password from Settings — unlike a token reset, keeps the current session alive and only signs out other devices. */
+export const changePassword = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .validator((input: unknown) => changePasswordInput.parse(input))
+  .handler(async ({ data, context }) => {
+    checkRateLimit(`change-password:${context.userId}`, 5, 15 * 60 * 1000);
+
+    if (!(await verifyPassword(context.user.passwordHash, data.currentPassword))) {
+      throw new Error("Current password is incorrect");
+    }
+
+    const passwordHash = await hashPassword(data.newPassword);
+    const currentSessionId = verifySessionCookie(getCookie(SESSION_COOKIE_NAME));
+
+    await db.transaction(async (tx) => {
+      await tx.update(users).set({ passwordHash }).where(eq(users.id, context.userId));
+      await tx
+        .delete(sessions)
+        .where(
+          currentSessionId
+            ? and(eq(sessions.userId, context.userId), ne(sessions.id, currentSessionId))
+            : eq(sessions.userId, context.userId),
+        );
     });
 
     return { ok: true };

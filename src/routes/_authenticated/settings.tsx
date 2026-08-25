@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useActiveOrg, useProfile, useSaveRow } from "@/lib/growth";
+import { changePassword } from "@/server/functions/password-reset";
 import { NICHES, ONBOARDING_STAGES, stageLabel } from "@/lib/niches";
 import {
   Select,
@@ -146,8 +147,78 @@ function SettingsPage() {
               <dd className="font-medium">{profile?.["email"] ?? "—"}</dd>
             </div>
           </dl>
+          <div className="mt-4 border-t pt-4">
+            <ChangePasswordForm />
+          </div>
         </Panel>
       </div>
     </AppShell>
+  );
+}
+
+function ChangePasswordForm() {
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = new FormData(e.currentTarget);
+    const currentPassword = String(form.get("current_password"));
+    const newPassword = String(form.get("new_password"));
+    const confirm = String(form.get("confirm_password"));
+    if (newPassword !== confirm) {
+      toast.error("New passwords don't match");
+      return;
+    }
+    setLoading(true);
+    try {
+      await changePassword({ data: { currentPassword, newPassword } });
+      toast.success("Password changed — you're still signed in here, but every other device was signed out.");
+      e.currentTarget.reset();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not change password");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-3">
+      <Label className="text-sm font-medium">Change password</Label>
+      <div className="space-y-1.5">
+        <Label htmlFor="current_password" className="text-xs text-muted-foreground">
+          Current password
+        </Label>
+        <Input id="current_password" name="current_password" type="password" required autoComplete="current-password" />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="new_password" className="text-xs text-muted-foreground">
+          New password
+        </Label>
+        <Input
+          id="new_password"
+          name="new_password"
+          type="password"
+          required
+          minLength={6}
+          autoComplete="new-password"
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="confirm_password" className="text-xs text-muted-foreground">
+          Confirm new password
+        </Label>
+        <Input
+          id="confirm_password"
+          name="confirm_password"
+          type="password"
+          required
+          minLength={6}
+          autoComplete="new-password"
+        />
+      </div>
+      <Button type="submit" variant="outline" size="sm" disabled={loading}>
+        {loading ? "Changing…" : "Change password"}
+      </Button>
+    </form>
   );
 }

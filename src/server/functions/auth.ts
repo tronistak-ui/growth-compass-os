@@ -6,6 +6,7 @@ import { SESSION_COOKIE_NAME, SESSION_TTL_MS, signSessionCookie } from "../auth/
 import { createSession, deleteSession } from "../db-helpers/sessions.server";
 import { createUser, findUserByEmail } from "../db-helpers/users.server";
 import { getSessionUser, requireAuth } from "../auth/middleware";
+import { checkRateLimit, getClientIp } from "../auth/rate-limit.server";
 import { getUserRoles } from "../authz.server";
 import { db } from "@/db/client";
 import { userRoles } from "@/db/schema";
@@ -42,6 +43,10 @@ const signUpInput = z.object({
 export const signUp = createServerFn({ method: "POST" })
   .validator((input: unknown) => signUpInput.parse(input))
   .handler(async ({ data }) => {
+    // 5 accounts per IP per 15 minutes — blunts mass fake-signup spam
+    // without getting in the way of a real business signing up once.
+    checkRateLimit(`signup:${getClientIp()}`, 5, 15 * 60 * 1000);
+
     const existing = await findUserByEmail(data.email);
     if (existing) throw new Error("An account with that email already exists");
 
@@ -71,6 +76,10 @@ const signInInput = z.object({
 export const signIn = createServerFn({ method: "POST" })
   .validator((input: unknown) => signInInput.parse(input))
   .handler(async ({ data }) => {
+    // Keyed by IP+email, not IP alone — a shared office/NAT IP shouldn't
+    // lock everyone out because one account is being brute-forced.
+    checkRateLimit(`signin:${getClientIp()}:${data.email.toLowerCase()}`, 8, 15 * 60 * 1000);
+
     const user = await findUserByEmail(data.email);
     if (!user || !(await verifyPassword(user.passwordHash, data.password))) {
       throw new Error("Invalid email or password");

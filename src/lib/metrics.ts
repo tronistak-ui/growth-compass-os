@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Row } from "./growth";
+import { todayInBusinessTimezone } from "./date";
 
 export function money(value: number, currency = "USD") {
   try {
@@ -86,7 +87,7 @@ export function computeMetrics(data: {
     (c) => monthKey(c["customer_since"] ?? c["created_at"]) === thisMonth,
   ).length;
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayInBusinessTimezone();
   const followUpsDue = leads.filter(
     (l) => l["next_follow_up"] && String(l["next_follow_up"]) <= today && l["status"] !== "won",
   ).length;

@@ -6,10 +6,11 @@
 import { and, eq, gte, lte, ne, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { organizations, organizationMembers, leads, tasks, notifications } from "@/db/schema";
+import { todayInBusinessTimezone, startOfTodayInBusinessTimezone } from "@/lib/date";
 
 export async function createOverdueReminders(): Promise<{ created: number }> {
   const orgs = await db.select({ id: organizations.id }).from(organizations);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayInBusinessTimezone();
   let created = 0;
 
   for (const org of orgs) {
@@ -45,8 +46,7 @@ export async function createOverdueReminders(): Promise<{ created: number }> {
       .from(organizationMembers)
       .where(eq(organizationMembers.organizationId, org.id));
 
-    const startOfDay = new Date();
-    startOfDay.setUTCHours(0, 0, 0, 0);
+    const startOfDay = startOfTodayInBusinessTimezone();
 
     for (const m of members) {
       // At most one reminder per user per day — a fresh cron run (or a

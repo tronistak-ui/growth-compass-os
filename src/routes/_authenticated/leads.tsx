@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { useActiveOrg, useRows, useSaveRow, type Row } from "@/lib/growth";
 import { CHANNELS, lexicon, leadStages } from "@/lib/niches";
 import { pct, money } from "@/lib/metrics";
+import { todayInBusinessTimezone } from "@/lib/date";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/leads")({
@@ -37,7 +38,7 @@ function LeadsPage() {
 
   const rows = leads ?? [];
   const won = rows.filter((r) => r["status"] === "won").length;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayInBusinessTimezone();
   const due = rows.filter((r) => r["next_follow_up"] && r["next_follow_up"] <= today).length;
 
   const [view, setView] = useState<"table" | "kanban">("table");
