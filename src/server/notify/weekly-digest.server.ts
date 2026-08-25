@@ -21,6 +21,7 @@ import {
 } from "@/db/schema";
 import { toWireRows, toWireRow } from "../wire";
 import { computeMetrics, presenceScore, buildInsights, money, type Insight } from "@/lib/metrics";
+import { insightBenchmarks } from "@/lib/niches";
 import { sendMail } from "./mailer.server";
 
 export type DigestResult = { organizationId: string; sent: boolean; reason?: string };
@@ -45,17 +46,21 @@ async function loadOrgData(organizationId: string) {
         .then((r) => r[0]),
     ]);
 
-  const metrics = computeMetrics({
-    leads: toWireRows(leads, leadRows),
-    customers: toWireRows(customers, customerRows),
-    revenue: toWireRows(revenueTransactions, revenueRows),
-    expenses: toWireRows(expenses, expenseRows),
-    campaigns: toWireRows(campaigns, campaignRows),
-    offers: toWireRows(offers, offerRows),
-  });
+  const benchmarks = insightBenchmarks(org.niche);
+  const metrics = computeMetrics(
+    {
+      leads: toWireRows(leads, leadRows),
+      customers: toWireRows(customers, customerRows),
+      revenue: toWireRows(revenueTransactions, revenueRows),
+      expenses: toWireRows(expenses, expenseRows),
+      campaigns: toWireRows(campaigns, campaignRows),
+      offers: toWireRows(offers, offerRows),
+    },
+    benchmarks.typicalRepeatGapDays,
+  );
   const presence = presenceScore(presenceRow ? toWireRow(presenceProfiles, presenceRow) : null);
   const currency = org.currency ?? "USD";
-  const insights = buildInsights(metrics, presence.total, currency);
+  const insights = buildInsights(metrics, presence.total, currency, benchmarks);
 
   return { org, metrics, insights, currency };
 }

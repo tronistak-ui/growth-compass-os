@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Row } from "./growth";
 import { todayInBusinessTimezone } from "./date";
+import { insightBenchmarks, type InsightBenchmarks } from "./niches";
 
 export function money(value: number, currency = "USD") {
   try {
@@ -38,14 +39,17 @@ export function sum(rows: Row[], field = "amount") {
 
 export type Metrics = ReturnType<typeof computeMetrics>;
 
-export function computeMetrics(data: {
-  leads: Row[];
-  customers: Row[];
-  revenue: Row[];
-  expenses: Row[];
-  campaigns: Row[];
-  offers: Row[];
-}) {
+export function computeMetrics(
+  data: {
+    leads: Row[];
+    customers: Row[];
+    revenue: Row[];
+    expenses: Row[];
+    campaigns: Row[];
+    offers: Row[];
+  },
+  typicalRepeatGapDays = 45,
+) {
   const { leads, customers, revenue, expenses } = data;
   const thisMonth = currentMonthKey();
   const lastMonth = previousMonthKey();
@@ -120,8 +124,8 @@ export function computeMetrics(data: {
 
   const channelPerformance = channelBreakdown(data);
   const crossSellOpportunities = crossSellPairs(revenue, customers);
-  const rebookingCandidates = findRebookingCandidates(purchaseStats, customers);
-  const customerSegments = segmentCustomers(purchaseStats, customers);
+  const rebookingCandidates = findRebookingCandidates(purchaseStats, customers, typicalRepeatGapDays);
+  const customerSegments = segmentCustomers(purchaseStats, customers, typicalRepeatGapDays);
 
   return {
     totalLeads: leads.length,
@@ -282,6 +286,7 @@ function purchaseRhythm(stats: PurchaseStats | undefined, now = Date.now()) {
 function findRebookingCandidates(
   purchaseStats: Map<string, PurchaseStats>,
   customers: Row[],
+  typicalRepeatGapDaysFallback: number,
 ): RebookingCandidate[] {
   const out: RebookingCandidate[] = [];
 
@@ -289,7 +294,8 @@ function findRebookingCandidates(
     const { daysSinceLast, typicalGapDays, lastDate } = purchaseRhythm(purchaseStats.get(c["id"]));
     if (daysSinceLast === null) continue;
 
-    const threshold = typicalGapDays !== null ? Math.max(typicalGapDays * 1.5, 14) : 45;
+    const threshold =
+      typicalGapDays !== null ? Math.max(typicalGapDays * 1.5, 14) : typicalRepeatGapDaysFallback;
     if (daysSinceLast < threshold) continue;
 
     out.push({
@@ -318,6 +324,7 @@ export type CustomerSegment = "VIP" | "New" | "Active" | "At Risk" | "Lost";
 function segmentCustomers(
   purchaseStats: Map<string, PurchaseStats>,
   customers: Row[],
+  typicalRepeatGapDaysFallback: number,
 ): Map<string, CustomerSegment> {
   const totals = [...purchaseStats.values()].map((s) => s.total).sort((a, b) => a - b);
   // Top-20th-percentile spend, among customers who've actually bought something.
@@ -333,8 +340,9 @@ function segmentCustomers(
       continue;
     }
 
-    const lostAt = typicalGapDays !== null ? typicalGapDays * 3 : 120;
-    const atRiskAt = typicalGapDays !== null ? typicalGapDays * 1.5 : 45;
+    const gapBasis = typicalGapDays ?? typicalRepeatGapDaysFallback;
+    const lostAt = gapBasis * 3;
+    const atRiskAt = gapBasis * 1.5;
 
     if (daysSinceLast > lostAt) out.set(c["id"], "Lost");
     else if (daysSinceLast > atRiskAt) out.set(c["id"], "At Risk");
@@ -464,7 +472,12 @@ export type Insight = {
  * No AI, no randomness — the same inputs always produce the same output,
  * which is what makes these safe to persist as growth opportunities.
  */
-export function buildInsights(m: Metrics, presence: number, currency = "USD"): Insight[] {
+export function buildInsights(
+  m: Metrics,
+  presence: number,
+  currency = "USD",
+  benchmarks: InsightBenchmarks = insightBenchmarks(null),
+): Insight[] {
   const out: Insight[] = [];
 
   if (m.uncontacted > 0)
@@ -495,7 +508,7 @@ export function buildInsights(m: Metrics, presence: number, currency = "USD"): I
       action: "Clear the overdue follow-up list today and set the next date on each lead.",
     });
 
-  if (m.totalLeads >= 5 && m.conversionRate < 20)
+  if (m.totalLeads >= 5 && m.conversionRate < benchmarks.conversionRateTarget)
     out.push({
       key: "low_conversion",
       title: `Conversion rate is ${m.conversionRate.toFixed(1)}%`,
@@ -504,12 +517,12 @@ export function buildInsights(m: Metrics, presence: number, currency = "USD"): I
       module: "Conversion",
       lever: "more_customers",
       current: pct(m.conversionRate),
-      target: "20%+",
+      target: `${benchmarks.conversionRateTarget}%+`,
       impact: 80,
       action: "Tighten the offer and response time before spending more on reach.",
     });
 
-  if (m.totalCustomers >= 3 && m.repeatRate < 25)
+  if (m.totalCustomers >= 3 && m.repeatRate < benchmarks.repeatRateTarget)
     out.push({
       key: "low_repeat_rate",
       title: `Repeat customer rate is ${m.repeatRate.toFixed(0)}%`,
@@ -518,7 +531,7 @@ export function buildInsights(m: Metrics, presence: number, currency = "USD"): I
       module: "Revenue Growth",
       lever: "more_often",
       current: pct(m.repeatRate, 0),
-      target: "25%+",
+      target: `${benchmarks.repeatRateTarget}%+`,
       impact: 70,
       action: "Run a win-back message to every customer who has bought only once.",
     });
@@ -540,7 +553,7 @@ export function buildInsights(m: Metrics, presence: number, currency = "USD"): I
       });
   }
 
-  if (m.margin < 20 && m.revenueThisMonth > 0)
+  if (m.margin < benchmarks.marginTarget && m.revenueThisMonth > 0)
     out.push({
       key: "thin_margin",
       title: `Profit margin is ${m.margin.toFixed(0)}%`,
@@ -549,7 +562,7 @@ export function buildInsights(m: Metrics, presence: number, currency = "USD"): I
       module: "Finance",
       lever: "better_margin",
       current: pct(m.margin),
-      target: "20%+",
+      target: `${benchmarks.marginTarget}%+`,
       impact: 75,
       action: "Raise price on the top-selling item or reduce the largest cost line.",
     });
