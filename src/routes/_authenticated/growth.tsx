@@ -11,6 +11,7 @@ import { nicheConfig } from "@/lib/niches";
 import { useOrgData } from "@/lib/use-org-data";
 import { money, pct, priorityLabel, type Insight } from "@/lib/metrics";
 import { cn } from "@/lib/utils";
+import { BRAND_FULL } from "@/lib/brand";
 
 const INSIGHT_MODULE_TO_TASK_MODULE: Record<string, string> = {
   "Revenue Growth": "growth",
@@ -23,13 +24,13 @@ function taskModuleFor(insightModule: string): string {
 export const Route = createFileRoute("/_authenticated/growth")({
   head: () => ({
     meta: [
-      { title: "Revenue Growth — TrendZypher Growth OS" },
+      { title: `Revenue Growth — ${BRAND_FULL}` },
       {
         name: "description",
         content:
           "Grow revenue with the four levers: more customers, higher value, more often, better margin.",
       },
-      { property: "og:title", content: "Revenue Growth — TrendZypher Growth OS" },
+      { property: "og:title", content: `Revenue Growth — ${BRAND_FULL}` },
       {
         property: "og:description",
         content: "Track growth levers and the actions that move each one.",

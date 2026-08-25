@@ -15,17 +15,18 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
+import { BRAND_FULL } from "@/lib/brand";
 
 export const Route = createFileRoute("/_authenticated/presence")({
   head: () => ({
     meta: [
-      { title: "Online presence audit — TrendZypher Growth OS" },
+      { title: `Online presence audit — ${BRAND_FULL}` },
       {
         name: "description",
         content:
           "Audit your website, Google profile, Instagram and WhatsApp, and score your discoverability.",
       },
-      { property: "og:title", content: "Online presence audit — TrendZypher Growth OS" },
+      { property: "og:title", content: `Online presence audit — ${BRAND_FULL}` },
       {
         property: "og:description",
         content: "Score discoverability, trust and consistency across every channel.",

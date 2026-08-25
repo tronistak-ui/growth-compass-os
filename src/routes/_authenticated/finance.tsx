@@ -6,16 +6,17 @@ import { useActiveOrg, useRows } from "@/lib/growth";
 import { useOrgData } from "@/lib/use-org-data";
 import { CHANNELS, EXPENSE_CATEGORIES, nicheConfig } from "@/lib/niches";
 import { money, pct } from "@/lib/metrics";
+import { BRAND_FULL } from "@/lib/brand";
 
 export const Route = createFileRoute("/_authenticated/finance")({
   head: () => ({
     meta: [
-      { title: "Finance — TrendZypher Growth OS" },
+      { title: `Finance — ${BRAND_FULL}` },
       {
         name: "description",
         content: "Record income and expenses so you always know real profit, not just sales.",
       },
-      { property: "og:title", content: "Finance — TrendZypher Growth OS" },
+      { property: "og:title", content: `Finance — ${BRAND_FULL}` },
       {
         property: "og:description",
         content: "Simple income and expense tracking with live profit and margin.",

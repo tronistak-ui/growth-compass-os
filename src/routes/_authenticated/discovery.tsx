@@ -5,17 +5,18 @@ import { StatCard } from "@/components/growth/ui";
 import { useActiveOrg, useRows } from "@/lib/growth";
 import { money } from "@/lib/metrics";
 import { lexicon } from "@/lib/niches";
+import { BRAND_FULL } from "@/lib/brand";
 
 export const Route = createFileRoute("/_authenticated/discovery")({
   head: () => ({
     meta: [
-      { title: "Customer Discovery — TrendZypher Growth OS" },
+      { title: `Customer Discovery — ${BRAND_FULL}` },
       {
         name: "description",
         content:
           "Define who your best customers are: their problems, triggers, objections and channels.",
       },
-      { property: "og:title", content: "Customer Discovery — TrendZypher Growth OS" },
+      { property: "og:title", content: `Customer Discovery — ${BRAND_FULL}` },
       {
         property: "og:description",
         content: "Build clear customer segments so every offer speaks to a real person.",

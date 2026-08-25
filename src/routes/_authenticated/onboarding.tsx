@@ -20,17 +20,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { BRAND_FULL, BRAND_TAGLINE } from "@/lib/brand";
 
 export const Route = createFileRoute("/_authenticated/onboarding")({
   head: () => ({
     meta: [
-      { title: "Business onboarding — TrendZypher Growth OS" },
+      { title: `Business onboarding — ${BRAND_FULL}` },
       {
         name: "description",
-        content:
-          "Tell the Growth OS about your business, model and goals to activate your workspace.",
+        content: `Tell the ${BRAND_TAGLINE} about your business, model and goals to activate your workspace.`,
       },
-      { property: "og:title", content: "Business onboarding — TrendZypher Growth OS" },
+      { property: "og:title", content: `Business onboarding — ${BRAND_FULL}` },
       { property: "og:description", content: "Set up your business profile, model and goals." },
     ],
   }),
@@ -136,7 +136,7 @@ function Onboarding() {
     <div className="dotfield min-h-screen bg-background px-4 py-10">
       <div className="mx-auto w-full max-w-3xl">
         <div className="mb-6 text-center">
-          <h1 className="font-display text-2xl font-semibold text-ink">Set up your Growth OS</h1>
+          <h1 className="font-display text-2xl font-semibold text-ink">Set up your {BRAND_TAGLINE}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Three short steps. Everything can be edited later in Settings.
           </p>

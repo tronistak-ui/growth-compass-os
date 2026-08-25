@@ -35,13 +35,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useQueryClient } from "@tanstack/react-query";
+import { BRAND_FULL, BRAND_TAGLINE } from "@/lib/brand";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({
     meta: [
-      { title: "Admin — TrendZypher Growth OS" },
-      { name: "description", content: "Platform overview of businesses using the Growth OS." },
-      { property: "og:title", content: "Admin — TrendZypher Growth OS" },
+      { title: `Admin — ${BRAND_FULL}` },
+      { name: "description", content: `Platform overview of businesses using the ${BRAND_TAGLINE}.` },
+      { property: "og:title", content: `Admin — ${BRAND_FULL}` },
       { property: "og:description", content: "Platform overview of businesses and members." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

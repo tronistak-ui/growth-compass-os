@@ -6,16 +6,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { BRAND_NAME, BRAND_TAGLINE, BRAND_FULL } from "@/lib/brand";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
-      { title: "Sign in — TrendZypher Growth OS" },
+      { title: `Sign in — ${BRAND_FULL}` },
       {
         name: "description",
-        content: "Sign in or create your TrendZypher Growth OS account to run your business growth.",
+        content: `Sign in or create your ${BRAND_FULL} account to run your business growth.`,
       },
-      { property: "og:title", content: "Sign in — TrendZypher Growth OS" },
+      { property: "og:title", content: `Sign in — ${BRAND_FULL}` },
       {
         property: "og:description",
         content: "Access your growth dashboard, leads, customers, revenue and profit.",
@@ -63,12 +64,12 @@ function AuthPage() {
       <div className="w-full max-w-[420px]">
         <Link to="/" className="mb-6 flex items-center justify-center gap-2.5">
           <div className="grid size-10 place-items-center rounded-xl bg-ink">
-            <img src="/tz-mark.png" alt="" className="size-6 object-contain" />
+            <img src="/brand-mark.png" alt="" className="size-6 object-contain" />
           </div>
           <div className="leading-tight">
-            <div className="font-display text-base font-semibold text-ink">TrendZypher</div>
+            <div className="font-display text-base font-semibold text-ink">{BRAND_NAME}</div>
             <div className="text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
-              Growth OS
+              {BRAND_TAGLINE}
             </div>
           </div>
         </Link>

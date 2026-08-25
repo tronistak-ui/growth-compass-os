@@ -4,17 +4,18 @@ import { CrudPanel } from "@/components/growth/crud";
 import { StatCard } from "@/components/growth/ui";
 import { useActiveOrg, useRows } from "@/lib/growth";
 import { todayInBusinessTimezone } from "@/lib/date";
+import { BRAND_FULL } from "@/lib/brand";
 
 export const Route = createFileRoute("/_authenticated/tasks")({
   head: () => ({
     meta: [
-      { title: "Action plan & tasks — TrendZypher Growth OS" },
+      { title: `Action plan & tasks — ${BRAND_FULL}` },
       {
         name: "description",
         content:
           "Turn growth insights into a weekly action plan with owners, priorities and due dates.",
       },
-      { property: "og:title", content: "Action plan & tasks — TrendZypher Growth OS" },
+      { property: "og:title", content: `Action plan & tasks — ${BRAND_FULL}` },
       {
         property: "og:description",
         content: "A single execution list across presence, reach, conversion and revenue.",

@@ -5,10 +5,11 @@ import { requestPasswordReset } from "@/server/functions/password-reset";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { BRAND_NAME, BRAND_TAGLINE, BRAND_FULL } from "@/lib/brand";
 
 export const Route = createFileRoute("/forgot-password")({
   head: () => ({
-    meta: [{ title: "Reset your password — TrendZypher Growth OS" }],
+    meta: [{ title: `Reset your password — ${BRAND_FULL}` }],
   }),
   component: ForgotPasswordPage,
 });
@@ -36,12 +37,12 @@ function ForgotPasswordPage() {
       <div className="w-full max-w-[420px]">
         <Link to="/" className="mb-6 flex items-center justify-center gap-2.5">
           <div className="grid size-10 place-items-center rounded-xl bg-ink">
-            <img src="/tz-mark.png" alt="" className="size-6 object-contain" />
+            <img src="/brand-mark.png" alt="" className="size-6 object-contain" />
           </div>
           <div className="leading-tight">
-            <div className="font-display text-base font-semibold text-ink">TrendZypher</div>
+            <div className="font-display text-base font-semibold text-ink">{BRAND_NAME}</div>
             <div className="text-[11px] tracking-[0.14em] text-muted-foreground uppercase">
-              Growth OS
+              {BRAND_TAGLINE}
             </div>
           </div>
         </Link>

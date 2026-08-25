@@ -13,11 +13,12 @@ import {
   Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BRAND_NAME, BRAND_TAGLINE, BRAND_FULL } from "@/lib/brand";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "TrendZypher Growth OS — Run your whole business growth in one place" },
+      { title: `${BRAND_FULL} — Run your whole business growth in one place` },
       {
         name: "description",
         content:
@@ -25,7 +26,7 @@ export const Route = createFileRoute("/")({
       },
       {
         property: "og:title",
-        content: "TrendZypher Growth OS — Run your whole business growth in one place",
+        content: `${BRAND_FULL} — Run your whole business growth in one place`,
       },
       {
         property: "og:description",
@@ -110,7 +111,7 @@ function Landing() {
               <BarChart3 className="size-4 text-primary-foreground" />
             </div>
             <span className="font-display text-sm font-semibold tracking-tight text-ink">
-              TrendZypher <span className="text-muted-foreground">Growth OS</span>
+              {BRAND_NAME} <span className="text-muted-foreground">{BRAND_TAGLINE}</span>
             </span>
           </div>
           <nav className="hidden items-center gap-7 text-sm text-muted-foreground md:flex">
@@ -154,7 +155,7 @@ function Landing() {
                 measured in one place.
               </h1>
               <p className="mt-5 max-w-2xl text-base leading-relaxed text-muted-foreground md:text-lg">
-                TrendZypher connects presence, customer discovery, reach, conversion, CRM, revenue
+                {BRAND_NAME} connects presence, customer discovery, reach, conversion, CRM, revenue
                 and profit into a single instrument panel — so you always know what is working,
                 what is leaking, and what to do next.
               </p>
@@ -330,7 +331,7 @@ function Landing() {
 
       <footer className="border-t border-border">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-5 py-8 text-xs text-muted-foreground sm:flex-row">
-          <span>© {new Date().getFullYear()} TrendZypher Growth OS</span>
+          <span>© {new Date().getFullYear()} {BRAND_FULL}</span>
           <span>Presence · Reach · Conversion · Revenue · Profit</span>
         </div>
       </footer>

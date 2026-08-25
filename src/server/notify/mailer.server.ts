@@ -4,6 +4,7 @@
 // provider (or re-add an API-based one) at deploy time — that's a separate,
 // later decision.
 import nodemailer from "nodemailer";
+import { BRAND_NAME } from "@/lib/brand";
 
 let _transport: ReturnType<typeof nodemailer.createTransport> | undefined;
 
@@ -20,6 +21,6 @@ function getTransport() {
 
 export async function sendMail(input: { to: string[]; subject: string; html: string }): Promise<void> {
   if (input.to.length === 0) return;
-  const from = process.env["ALERT_FROM_EMAIL"] ?? "TrendZypher Alerts <alerts@trendzypher.local>";
+  const from = process.env["ALERT_FROM_EMAIL"] ?? `${BRAND_NAME} Alerts <alerts@localhost>`;
   await getTransport().sendMail({ from, to: input.to, subject: input.subject, html: input.html });
 }

@@ -44,16 +44,17 @@ import { money, pct, monthlySeries, buildAdvisorSummary, priorityLabel } from "@
 import { lexicon } from "@/lib/niches";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { BRAND_FULL, BRAND_TAGLINE } from "@/lib/brand";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
     meta: [
-      { title: "Dashboard — TrendZypher Growth OS" },
+      { title: `Dashboard — ${BRAND_FULL}` },
       {
         name: "description",
         content: "Business health, growth funnel, revenue and opportunities in one live view.",
       },
-      { property: "og:title", content: "Dashboard — TrendZypher Growth OS" },
+      { property: "og:title", content: `Dashboard — ${BRAND_FULL}` },
       { property: "og:description", content: "Live business health, funnel and profit view." },
     ],
   }),
@@ -91,7 +92,7 @@ function Dashboard() {
       <AppShell title="Dashboard">
         <EmptyState
           title="Set up your business"
-          description="Complete onboarding so the Growth OS can start tracking presence, leads, customers and profit."
+          description={`Complete onboarding so the ${BRAND_TAGLINE} can start tracking presence, leads, customers and profit.`}
           action={
             <Link to="/onboarding">
               <Button>Start onboarding</Button>
@@ -121,7 +122,7 @@ function Dashboard() {
       ) : (
         <div className="space-y-6">
           <Panel
-            title="Growth OS rollout"
+            title={`${BRAND_TAGLINE} rollout`}
             description="Where this business is in the onboarding journey"
           >
             <StageTracker stage={String(d.org?.["onboarding_status"] ?? "not_started")} />

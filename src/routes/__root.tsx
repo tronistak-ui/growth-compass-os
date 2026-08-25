@@ -12,6 +12,7 @@ import type { ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { Toaster } from "@/components/ui/sonner";
 import { themeInitScript } from "@/lib/theme";
+import { BRAND_FULL } from "@/lib/brand";
 
 function NotFoundComponent() {
   return (
@@ -79,7 +80,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       // its own head() meta, which wins over this one. Without it, pages
       // rendered outside normal route matching (404, the root error
       // boundary) show a blank browser tab.
-      { title: "TrendZypher Growth OS" },
+      { title: BRAND_FULL },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],

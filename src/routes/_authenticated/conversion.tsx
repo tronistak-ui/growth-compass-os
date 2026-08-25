@@ -6,16 +6,17 @@ import { useActiveOrg, useRows } from "@/lib/growth";
 import { useOrgData } from "@/lib/use-org-data";
 import { pct } from "@/lib/metrics";
 import { lexicon } from "@/lib/niches";
+import { BRAND_FULL } from "@/lib/brand";
 
 export const Route = createFileRoute("/_authenticated/conversion")({
   head: () => ({
     meta: [
-      { title: "Conversion — TrendZypher Growth OS" },
+      { title: `Conversion — ${BRAND_FULL}` },
       {
         name: "description",
         content: "Turn attention into enquiries and enquiries into paying customers.",
       },
-      { property: "og:title", content: "Conversion — TrendZypher Growth OS" },
+      { property: "og:title", content: `Conversion — ${BRAND_FULL}` },
       {
         property: "og:description",
         content: "Audit your conversion assets and track the funnel month by month.",

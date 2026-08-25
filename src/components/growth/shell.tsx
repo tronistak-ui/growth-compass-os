@@ -36,6 +36,7 @@ import {
 import { useNotifications, useMarkNotificationRead } from "@/lib/health";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
+import { BRAND_NAME, BRAND_TAGLINE } from "@/lib/brand";
 import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { GlobalSearch } from "./global-search";
@@ -160,14 +161,14 @@ export function AppShell({
       >
         <div className="flex h-16 items-center gap-2.5 border-b border-sidebar-border px-5">
           <div className="grid size-8 place-items-center rounded-lg bg-sidebar-primary shadow-[0_0_0_1px_var(--sidebar-border)]">
-            <img src="/tz-mark.png" alt="" className="size-5 object-contain" />
+            <img src="/brand-mark.png" alt="" className="size-5 object-contain" />
           </div>
           <div className="leading-tight">
             <div className="font-display text-sm font-semibold text-sidebar-accent-foreground">
-              TrendZypher
+              {BRAND_NAME}
             </div>
             <div className="text-[11px] tracking-wide text-sidebar-foreground/60 uppercase">
-              Growth OS
+              {BRAND_TAGLINE}
             </div>
           </div>
         </div>
@@ -213,7 +214,7 @@ export function AppShell({
         </nav>
 
         <div className="border-t border-sidebar-border px-3 py-3 text-[11px] text-sidebar-foreground/50">
-          Growth OS · v1
+          {BRAND_TAGLINE} · v1
         </div>
       </aside>
 

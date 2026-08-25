@@ -11,6 +11,7 @@ import { SESSION_COOKIE_NAME, verifySessionCookie } from "../auth/session-cookie
 import { requireAuth } from "../auth/middleware";
 import { checkRateLimit, getClientIp } from "../auth/rate-limit.server";
 import { sendMail } from "../notify/mailer.server";
+import { BRAND_NAME, BRAND_FULL } from "@/lib/brand";
 
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 
@@ -45,11 +46,11 @@ export const requestPasswordReset = createServerFn({ method: "POST" })
       const link = `${appBaseUrl}/reset-password?token=${token}`;
       await sendMail({
         to: [user.email],
-        subject: "Reset your TrendZypher password",
+        subject: `Reset your ${BRAND_NAME} password`,
         html: `
           <div style="font-family:-apple-system,Segoe UI,sans-serif;max-width:480px;margin:0 auto;">
             <p style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#6b7280;margin-bottom:4px;">
-              TrendZypher Growth OS
+              ${BRAND_FULL}
             </p>
             <h2 style="margin:0 0 12px;">Reset your password</h2>
             <p style="color:#374151;font-size:14px;">

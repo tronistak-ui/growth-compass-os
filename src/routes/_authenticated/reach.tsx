@@ -7,16 +7,17 @@ import { useOrgData } from "@/lib/use-org-data";
 import { CHANNELS, nicheConfig } from "@/lib/niches";
 import { money, sum } from "@/lib/metrics";
 import { cn } from "@/lib/utils";
+import { BRAND_FULL } from "@/lib/brand";
 
 export const Route = createFileRoute("/_authenticated/reach")({
   head: () => ({
     meta: [
-      { title: "Offers & Campaigns — TrendZypher Growth OS" },
+      { title: `Offers & Campaigns — ${BRAND_FULL}` },
       {
         name: "description",
         content: "Build offers people actually want and run campaigns that put them in front.",
       },
-      { property: "og:title", content: "Offers & Campaigns — TrendZypher Growth OS" },
+      { property: "og:title", content: `Offers & Campaigns — ${BRAND_FULL}` },
       {
         property: "og:description",
         content: "Plan offers, set prices and track campaigns across every channel.",

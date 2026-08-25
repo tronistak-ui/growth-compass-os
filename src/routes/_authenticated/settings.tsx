@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useActiveOrg, useProfile, useSaveRow } from "@/lib/growth";
 import { changePassword } from "@/server/functions/password-reset";
+import { BRAND_FULL, BRAND_TAGLINE } from "@/lib/brand";
 import { NICHES, ONBOARDING_STAGES, stageLabel } from "@/lib/niches";
 import {
   Select,
@@ -20,12 +21,12 @@ import {
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
     meta: [
-      { title: "Settings — TrendZypher Growth OS" },
+      { title: `Settings — ${BRAND_FULL}` },
       {
         name: "description",
         content: "Manage your business profile, industry, currency and account details.",
       },
-      { property: "og:title", content: "Settings — TrendZypher Growth OS" },
+      { property: "og:title", content: `Settings — ${BRAND_FULL}` },
       { property: "og:description", content: "Business profile, industry and currency settings." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -79,7 +80,7 @@ function SettingsPage() {
     <AppShell title="Settings" subtitle="Business profile and account details">
       <Panel
         title="Onboarding journey"
-        description="Where this business is in the Growth OS rollout"
+        description={`Where this business is in the ${BRAND_TAGLINE} rollout`}
         className="mb-4"
       >
         <StageTracker stage={currentStage} />

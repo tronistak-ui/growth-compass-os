@@ -11,17 +11,18 @@ import { CHANNELS, lexicon, leadStages } from "@/lib/niches";
 import { pct, money } from "@/lib/metrics";
 import { todayInBusinessTimezone } from "@/lib/date";
 import { cn } from "@/lib/utils";
+import { BRAND_FULL } from "@/lib/brand";
 
 export const Route = createFileRoute("/_authenticated/leads")({
   head: () => ({
     meta: [
-      { title: "Leads & follow-ups — TrendZypher Growth OS" },
+      { title: `Leads & follow-ups — ${BRAND_FULL}` },
       {
         name: "description",
         content:
           "Track every enquiry from new lead to won, with sources, stages and follow-up dates.",
       },
-      { property: "og:title", content: "Leads & follow-ups — TrendZypher Growth OS" },
+      { property: "og:title", content: `Leads & follow-ups — ${BRAND_FULL}` },
       { property: "og:description", content: "A simple pipeline for enquiries and follow-ups." },
     ],
   }),

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { BRAND_FULL } from "@/lib/brand";
 import {
   Dialog,
   DialogContent,
@@ -30,12 +31,12 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/_authenticated/customers")({
   head: () => ({
     meta: [
-      { title: "Customers — TrendZypher Growth OS" },
+      { title: `Customers — ${BRAND_FULL}` },
       {
         name: "description",
         content: "A simple CRM for repeat business: profiles, purchase history and retention.",
       },
-      { property: "og:title", content: "Customers — TrendZypher Growth OS" },
+      { property: "og:title", content: `Customers — ${BRAND_FULL}` },
       { property: "og:description", content: "Track customers, repeat rate and lifetime value." },
     ],
   }),

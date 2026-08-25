@@ -10,16 +10,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { useActiveOrg, useSingletonRow, useUpsertSingleton, useRows } from "@/lib/growth";
 import { positioningScore, presenceScore, brandProgression, type BrandStage } from "@/lib/metrics";
 import { cn } from "@/lib/utils";
+import { BRAND_FULL } from "@/lib/brand";
 
 export const Route = createFileRoute("/_authenticated/positioning")({
   head: () => ({
     meta: [
-      { title: "Positioning — TrendZypher Growth OS" },
+      { title: `Positioning — ${BRAND_FULL}` },
       {
         name: "description",
         content: "Say clearly who you are for, what you promise and why you are the better choice.",
       },
-      { property: "og:title", content: "Positioning — TrendZypher Growth OS" },
+      { property: "og:title", content: `Positioning — ${BRAND_FULL}` },
       {
         property: "og:description",
         content: "Sharpen your value proposition and track competitors in one place.",
