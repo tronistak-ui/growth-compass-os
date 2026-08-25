@@ -232,7 +232,11 @@ function CustomerProfile({
       return;
     }
     saveInteraction.mutate(
-      { customer_id: customerId, type, summary, occurred_at: occurred },
+      // occurred_at is a `timestamp` column (Date-object mode in Drizzle) —
+      // a bare string fails server-side with "value.toISOString is not a
+      // function". Pre-existing bug, caught while building the lead-side
+      // equivalent of this same interaction log.
+      { customer_id: customerId, type, summary, occurred_at: new Date(occurred) },
       {
         onSuccess: () => {
           toast.success("Interaction logged");
