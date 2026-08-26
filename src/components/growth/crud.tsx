@@ -45,6 +45,13 @@ export type Field = {
   inTable?: boolean;
   inForm?: boolean;
   render?: (row: Row) => ReactNode;
+  /**
+   * Overrides the exported CSV cell for this field — for a foreign-key
+   * `select` field (e.g. customer_id), the raw stored value is a UUID with
+   * no meaning outside this database; this lets the field's actual label
+   * (e.g. the customer's name) go into the file instead.
+   */
+  csvValue?: (row: Row) => string | number;
   placeholder?: string;
 };
 
@@ -142,13 +149,17 @@ export function CrudPanel({
   // Fields with no `type` and inForm:false are computed, display-only
   // columns (e.g. Customers' "Spent"/"Purchases") backed by no real DB
   // column — export/import should skip them rather than round-trip an
-  // always-blank column.
-  const csvFields = fields.filter((f) => !(f.inForm === false && !f.type));
+  // always-blank column. A `csvValue` means the field has real, exportable
+  // data of its own (e.g. a looked-up customer email), so it's kept.
+  const csvFields = fields.filter((f) => f.csvValue || !(f.inForm === false && !f.type));
 
   function exportRows() {
     const header = csvFields.map((f) => f.name);
     const body = (rows ?? []).map((r) =>
-      csvFields.map((f) => (Array.isArray(r[f.name]) ? r[f.name].join("; ") : (r[f.name] ?? ""))),
+      csvFields.map((f) => {
+        if (f.csvValue) return f.csvValue(r);
+        return Array.isArray(r[f.name]) ? r[f.name].join("; ") : (r[f.name] ?? "");
+      }),
     );
     downloadCsv(`${table}-${new Date().toISOString().slice(0, 10)}.csv`, [header, ...body]);
   }

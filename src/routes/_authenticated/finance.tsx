@@ -45,6 +45,19 @@ function FinancePage() {
     value: String(r["id"]),
     label: String(r["name"]),
   }));
+  const customerNameById = new Map(customerOptions.map((c) => [c.value, c.label]));
+  const customerName = (row: Record<string, unknown>) =>
+    customerNameById.get(String(row["customer_id"] ?? "")) ?? "";
+  const customerEmailById = new Map(
+    (customers ?? []).map((c) => [String(c["id"]), String(c["email"] ?? "")]),
+  );
+  const customerPhoneById = new Map(
+    (customers ?? []).map((c) => [String(c["id"]), String(c["phone"] ?? "")]),
+  );
+  const customerEmail = (row: Record<string, unknown>) =>
+    customerEmailById.get(String(row["customer_id"] ?? "")) ?? "";
+  const customerPhone = (row: Record<string, unknown>) =>
+    customerPhoneById.get(String(row["customer_id"] ?? "")) ?? "";
   const campaignOptions = (campaigns ?? []).map((r) => ({
     value: String(r["id"]),
     label: `${String(r["name"])} (${String(r["channel"])})`,
@@ -118,7 +131,22 @@ function FinancePage() {
                     label: "Customer",
                     type: "select" as const,
                     options: customerOptions,
-                    inTable: false,
+                    render: (r: Record<string, unknown>) => customerName(r) || "—",
+                    csvValue: (r: Record<string, unknown>) => customerName(r),
+                  },
+                  {
+                    name: "customer_email",
+                    label: "Email",
+                    inForm: false,
+                    render: (r: Record<string, unknown>) => customerEmail(r) || "—",
+                    csvValue: (r: Record<string, unknown>) => customerEmail(r),
+                  },
+                  {
+                    name: "customer_phone",
+                    label: "Phone",
+                    inForm: false,
+                    render: (r: Record<string, unknown>) => customerPhone(r) || "—",
+                    csvValue: (r: Record<string, unknown>) => customerPhone(r),
                   },
                 ]
               : []),
