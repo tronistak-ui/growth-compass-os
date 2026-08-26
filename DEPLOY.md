@@ -181,6 +181,10 @@ server {
 - Sign in, confirm the dashboard loads with real (empty) data.
 - Check `sudo systemctl status growth-compass` and `journalctl -u
   growth-compass -f` for errors under real traffic.
+- Load `/legal/terms` and `/legal/privacy` — before the first real client,
+  update the "Last updated" date in both (`src/routes/legal/terms.tsx` and
+  `privacy.tsx`) and confirm the terms (fee, refund policy, support window)
+  are what you actually intend to honor for this client.
 
 ## 8. Updating an existing deployment
 
