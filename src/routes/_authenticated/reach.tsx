@@ -68,6 +68,12 @@ function ReachPage() {
     value: String(o["id"]),
     label: String(o["name"]),
   }));
+  const segmentNameById = new Map(segmentOptions.map((s) => [s.value, s.label]));
+  const offerNameById = new Map(offerOptions.map((o) => [o.value, o.label]));
+  const offerSegmentName = (row: Record<string, unknown>) =>
+    segmentNameById.get(String(row["segment_id"] ?? "")) ?? "";
+  const campaignOfferName = (row: Record<string, unknown>) =>
+    offerNameById.get(String(row["offer_id"] ?? "")) ?? "";
 
   return (
     <AppShell title="Offers & Campaigns" subtitle="What you sell, and how people hear about it">
@@ -137,6 +143,7 @@ function ReachPage() {
         <CrudPanel
           table="offers"
           orgId={orgId}
+          csv
           title="Offers"
           description="Packages, promotions and services you actively sell"
           emptyTitle="No offers yet"
@@ -157,6 +164,7 @@ function ReachPage() {
                     type: "select" as const,
                     options: segmentOptions,
                     inTable: false,
+                    csvValue: offerSegmentName,
                   },
                 ]
               : []),
@@ -168,6 +176,7 @@ function ReachPage() {
         <CrudPanel
           table="campaigns"
           orgId={orgId}
+          csv
           title="Campaigns"
           description="Every push you run to get the offer seen"
           emptyTitle="No campaigns yet"
@@ -212,6 +221,7 @@ function ReachPage() {
                     type: "select" as const,
                     options: offerOptions,
                     inTable: false,
+                    csvValue: campaignOfferName,
                   },
                 ]
               : []),

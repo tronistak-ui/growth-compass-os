@@ -203,6 +203,32 @@ export const exportOrgData = createServerFn({ method: "GET" })
       tables[name] = toWireRows(table, rows as Record<string, unknown>[]);
     }
 
+    // A raw foreign-key UUID means nothing outside this database — add the
+    // referenced row's name alongside it (customer_id -> customer_name, etc.)
+    // so the export reads on its own, without joining tables by hand.
+    const FK_LOOKUPS: Record<string, string> = {
+      customer_id: "customers",
+      campaign_id: "campaigns",
+      offer_id: "offers",
+      segment_id: "customer_segments",
+    };
+    const nameById: Record<string, Map<string, string>> = {};
+    for (const targetTable of new Set(Object.values(FK_LOOKUPS))) {
+      nameById[targetTable] = new Map(
+        (tables[targetTable] ?? []).map((r) => [String(r["id"]), String(r["name"] ?? "")]),
+      );
+    }
+    for (const rows of Object.values(tables)) {
+      for (const row of rows) {
+        for (const [fkCol, targetTable] of Object.entries(FK_LOOKUPS)) {
+          if (row[fkCol]) {
+            const label = nameById[targetTable]?.get(String(row[fkCol]));
+            if (label) row[fkCol.replace(/_id$/, "_name")] = label;
+          }
+        }
+      }
+    }
+
     return {
       exported_at: new Date().toISOString(),
       organization: toWireRow(organizations, org),
