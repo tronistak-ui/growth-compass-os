@@ -89,13 +89,22 @@ function AuthPage() {
 
               <div className="space-y-1.5">
                 <Label htmlFor="email">Work email</Label>
-                <Input id="email" name="email" type="email" required placeholder="you@business.com" />
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  required
+                  placeholder="you@business.com"
+                />
               </div>
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="password">Password</Label>
                   {mode === "signin" && (
-                    <Link to="/forgot-password" className="text-xs text-muted-foreground hover:text-primary">
+                    <Link
+                      to="/forgot-password"
+                      className="text-xs text-muted-foreground hover:text-primary"
+                    >
                       Forgot password?
                     </Link>
                   )}
@@ -118,7 +127,15 @@ function AuthPage() {
         </div>
 
         <p className="mt-5 text-center text-xs text-muted-foreground">
-          Your business data is isolated per organization.
+          Your business data is isolated per organization. By continuing, you agree to our{" "}
+          <Link to="/legal/terms" className="underline underline-offset-2 hover:text-primary">
+            Terms
+          </Link>{" "}
+          and{" "}
+          <Link to="/legal/privacy" className="underline underline-offset-2 hover:text-primary">
+            Privacy Policy
+          </Link>
+          .
         </p>
       </div>
     </div>

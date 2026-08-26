@@ -32,6 +32,8 @@ import { Route as AuthenticatedReachRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated/tasks'
+import { Route as LegalPrivacyRouteImport } from './routes/legal/privacy'
+import { Route as LegalTermsRouteImport } from './routes/legal/terms'
 import { Route as ApiInstagramWebhookRouteImport } from './routes/api/instagram/webhook'
 import { Route as ApiOauthCallbackRouteImport } from './routes/api/oauth/callback'
 import { Route as ApiStorageSplatRouteImport } from './routes/api/storage/$'
@@ -151,6 +153,16 @@ const AuthenticatedTasksRoute = AuthenticatedTasksRouteImport.update({
   path: '/tasks',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const LegalPrivacyRoute = LegalPrivacyRouteImport.update({
+  id: '/legal/privacy',
+  path: '/legal/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LegalTermsRoute = LegalTermsRouteImport.update({
+  id: '/legal/terms',
+  path: '/legal/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiInstagramWebhookRoute = ApiInstagramWebhookRouteImport.update({
   id: '/api/instagram/webhook',
   path: '/api/instagram/webhook',
@@ -190,6 +202,8 @@ export interface FileRoutesByFullPath {
   '/reports': typeof AuthenticatedReportsRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/tasks': typeof AuthenticatedTasksRoute
+  '/legal/privacy': typeof LegalPrivacyRoute
+  '/legal/terms': typeof LegalTermsRoute
   '/api/instagram/webhook': typeof ApiInstagramWebhookRoute
   '/api/oauth/callback': typeof ApiOauthCallbackRoute
   '/api/storage/$': typeof ApiStorageSplatRoute
@@ -217,6 +231,8 @@ export interface FileRoutesByTo {
   '/reports': typeof AuthenticatedReportsRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/tasks': typeof AuthenticatedTasksRoute
+  '/legal/privacy': typeof LegalPrivacyRoute
+  '/legal/terms': typeof LegalTermsRoute
   '/api/instagram/webhook': typeof ApiInstagramWebhookRoute
   '/api/oauth/callback': typeof ApiOauthCallbackRoute
   '/api/storage/$': typeof ApiStorageSplatRoute
@@ -246,6 +262,8 @@ export interface FileRoutesById {
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
+  '/legal/privacy': typeof LegalPrivacyRoute
+  '/legal/terms': typeof LegalTermsRoute
   '/api/instagram/webhook': typeof ApiInstagramWebhookRoute
   '/api/oauth/callback': typeof ApiOauthCallbackRoute
   '/api/storage/$': typeof ApiStorageSplatRoute
@@ -275,6 +293,8 @@ export interface FileRouteTypes {
     | '/reports'
     | '/settings'
     | '/tasks'
+    | '/legal/privacy'
+    | '/legal/terms'
     | '/api/instagram/webhook'
     | '/api/oauth/callback'
     | '/api/storage/$'
@@ -302,6 +322,8 @@ export interface FileRouteTypes {
     | '/reports'
     | '/settings'
     | '/tasks'
+    | '/legal/privacy'
+    | '/legal/terms'
     | '/api/instagram/webhook'
     | '/api/oauth/callback'
     | '/api/storage/$'
@@ -330,6 +352,8 @@ export interface FileRouteTypes {
     | '/_authenticated/reports'
     | '/_authenticated/settings'
     | '/_authenticated/tasks'
+    | '/legal/privacy'
+    | '/legal/terms'
     | '/api/instagram/webhook'
     | '/api/oauth/callback'
     | '/api/storage/$'
@@ -343,6 +367,8 @@ export interface RootRouteChildren {
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   VerifyEmailRoute: typeof VerifyEmailRoute
+  LegalPrivacyRoute: typeof LegalPrivacyRoute
+  LegalTermsRoute: typeof LegalTermsRoute
   ApiInstagramWebhookRoute: typeof ApiInstagramWebhookRoute
   ApiOauthCallbackRoute: typeof ApiOauthCallbackRoute
   ApiStorageSplatRoute: typeof ApiStorageSplatRoute
@@ -511,6 +537,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedTasksRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/legal/privacy': {
+      id: '/legal/privacy'
+      path: '/legal/privacy'
+      fullPath: '/legal/privacy'
+      preLoaderRoute: typeof LegalPrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/legal/terms': {
+      id: '/legal/terms'
+      path: '/legal/terms'
+      fullPath: '/legal/terms'
+      preLoaderRoute: typeof LegalTermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/instagram/webhook': {
       id: '/api/instagram/webhook'
       path: '/api/instagram/webhook'
@@ -584,6 +624,8 @@ const rootRouteChildren: RootRouteChildren = {
   ForgotPasswordRoute: ForgotPasswordRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   VerifyEmailRoute: VerifyEmailRoute,
+  LegalPrivacyRoute: LegalPrivacyRoute,
+  LegalTermsRoute: LegalTermsRoute,
   ApiInstagramWebhookRoute: ApiInstagramWebhookRoute,
   ApiOauthCallbackRoute: ApiOauthCallbackRoute,
   ApiStorageSplatRoute: ApiStorageSplatRoute,

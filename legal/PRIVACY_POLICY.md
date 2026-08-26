@@ -7,27 +7,34 @@ _Last updated: [date you publish this]_
 
 ## 1. Who this is
 
-TrendZypher Growth OS ("**TrendZypher**", "**we**", "**us**") is operated by
+TrendZypher Growth OS ("**TrendZypher**", "**we**", "**us**") is provided by
 **[Your legal name / business name]**, based in **[City, State, India]**.
 For anything in this policy, contact **[support email address]**.
 
-This policy applies to the TrendZypher Growth OS web application at
-**[your domain]** ("**the Service**"), used by business owners ("**you**",
-"**the Customer**") to manage their own customers, leads, and business data.
+This policy applies to the TrendZypher Growth OS application deployed for
+your business ("**you**", "**the Customer**") and used by you and staff you
+invite to manage your own customers, leads, and business data.
 
-## 2. What we collect
+## 2. How this is different from a typical SaaS
 
-TrendZypher is multi-tenant: your account and data live in your own
-**organization**, invisible to other organizations on the same instance. We
-collect two categories of data:
+Each TrendZypher deployment is dedicated to one business: we set up and
+configure a private instance of the application on cloud infrastructure
+**that you own** (e.g. your own Oracle Cloud account), and hand you the
+credentials. Your data is not stored on shared servers alongside other
+businesses' data — it lives on infrastructure provisioned in your name, under
+your control.
+
+## 3. What we collect
 
 **A. Data about you (the Customer), to run your account:**
 - Name, email address, password (stored as an argon2 hash — we never see or
   store your plaintext password)
 - Login sessions and timestamps
-- Billing status (active / overdue / suspended) and payment due dates —
-  no card or bank details are stored in the app itself, since payment is
-  collected by bank transfer directly to us, outside the Service
+
+We do not process or store any payment information inside the application.
+The one-time setup fee is paid directly to us outside the Service (see our
+[Terms of Service](./TERMS_OF_SERVICE.md)), and nothing about that payment is
+recorded in your account.
 
 **B. Data you enter about your business and your customers, on your behalf:**
 - Customer/lead names, phone numbers, emails, and notes you add
@@ -39,61 +46,65 @@ collect two categories of data:
 We do not collect this data for our own purposes — it is yours, entered by
 you or your staff, to run your business inside the Service.
 
-## 3. How we use it
+## 4. How we use it
 
 - To provide the Service: displaying your dashboards, running the automations
-  you configure, sending the emails you or the Service triggers (password
-  resets, weekly digests, health alerts)
-- To bill you: tracking your `active` / `overdue` / `suspended` status against
-  the plan described in our [Terms of Service](./TERMS_OF_SERVICE.md)
-- To keep the Service working: error monitoring, backups, security logs
+  you configure, sending the emails you or the Service triggers (email
+  verification, team invites, password resets, weekly digests, health
+  alerts)
+- To deliver support you request (see Section 6)
 - We do **not** sell, rent, or share your data or your customers' data with
   third parties for their marketing purposes.
 
-## 4. Where it lives
+## 5. Where it lives
 
-Data is stored on a Postgres database on a VPS we operate, located in
-**[VPS provider + region, e.g. Hetzner, Germany / Oracle, Mumbai]**. Backups
-are taken **[frequency]** and retained for **[retention period]**.
+Your data is stored on a Postgres database running on cloud infrastructure
+**you provision and own** (e.g. an Oracle Cloud account in your name), which
+we configure and deploy on your behalf during setup. Because this
+infrastructure is yours, its ongoing availability, backups, and continued
+payment to the cloud provider are **[your responsibility once handed over /
+covered under an ongoing arrangement described here — decide and state
+which]**.
 
 Data from a third-party connection you authorize (Google Business Profile,
-Instagram) is fetched and stored under your organization only, encrypted at
-rest, and only used to power the features you connected it for. You can
+Instagram) is fetched and stored within your own deployment only, encrypted
+at rest, and only used to power the features you connected it for. You can
 disconnect these at any time from within the Service.
 
-## 5. Who can see it
+## 6. Who can see it
 
-- **You and staff you invite** to your organization
-- **TrendZypher platform admins** (us) — only to provide support, investigate
-  a reported issue, or as required to operate the Service (e.g. confirming a
-  bank transfer to update your billing status). We do not browse client data
-  without a reason tied to running the Service.
-- **Nobody else.** Organizations are isolated from each other in the database;
-  another business using TrendZypher cannot see your data.
+- **You and staff you invite** to your organization — team access is managed
+  entirely by you from within the Service.
+- **Us** — **[state the truth here: do we retain ongoing administrative
+  access to the server we set up for you after handoff, e.g. for applying
+  updates or providing support you request? Or is access fully transferred
+  and revoked on our side once setup is complete, with support handled some
+  other way? This is a real decision, not a formality — state it plainly.]**
+- **Nobody else.** Because your deployment is dedicated to your business
+  alone, there is no other organization's data anywhere on your instance.
 
-## 6. Your rights
+## 7. Your rights
 
-You (and your customers, where applicable) can ask us at
-**[support email]** to:
-- Export your organization's data
-- Correct inaccurate data
-- Delete your account and associated data, subject to what we're legally
-  required to retain (e.g. billing records)
+From **Settings**, within the Service, you can at any time:
+- **Export all of your organization's data** as a download
+- **Permanently delete your business and all its data** (irreversible,
+  requires typing your business name to confirm)
 
-_(Self-service export/delete from within the Service is planned — until it
-ships, this is a manual request to us.)_
+You do not need to contact us for either of these — they're self-service.
+For anything else (correcting data you can't fix yourself, a question about
+this policy), contact **[support email]**.
 
-## 7. Cookies & sessions
+## 8. Cookies & sessions
 
 We use a single essential cookie to keep you signed in (a signed session
 token). We do not use third-party advertising or tracking cookies.
 
-## 8. Changes to this policy
+## 9. Changes to this policy
 
-If this policy changes materially, we'll notify active organization owners by
-email before the change takes effect.
+If this policy changes materially, we'll notify you by email before the
+change takes effect.
 
-## 9. Grievance / contact
+## 10. Grievance / contact
 
 For any privacy question, complaint, or data request:
 **[support email]** — **[phone number, if you want to publish one]**
@@ -102,12 +113,21 @@ For any privacy question, complaint, or data request:
 
 ### Notes for you (delete before publishing)
 
-- This draft assumes India-based operation and INR billing per the existing
-  Terms of Service draft. If you incorporate a company later, update "Who
-  this is" with the registered entity name.
+- This draft assumes India-based operation. If you incorporate a company
+  later, update "Who this is" with the registered entity name.
+- **Section 5 and 6 have a real decision embedded that the old draft didn't
+  need to make**: since each client's data lives on infrastructure *they*
+  own, you need to actually decide (not just word carefully) whether you
+  keep any ongoing access to a client's server after handoff — for applying
+  security updates, fixing bugs, or support — or whether you hand over full
+  control and walk away, with any future work being a separate, explicit
+  engagement. Both are legitimate models; the Terms of Service and this
+  policy both need to say the same thing, whichever you pick.
 - If any client is an individual consumer (not just a business), consider
   whether India's DPDP Act 2023 grievance-officer requirements apply once
   you're operating at scale — worth a real lawyer's fifteen minutes, not
   something to guess into a template.
-- Once you approve the wording, I can wire this up as an actual `/legal/privacy`
-  route in the app and link it from the signup page and footer — say the word.
+- This is now wired up live at `/legal/privacy` in the app (see
+  `src/routes/legal/privacy.tsx`) and linked from the signup page footer.
+  If you edit the wording here, update that file to match — the live page
+  is hand-written JSX, not rendered from this markdown file.

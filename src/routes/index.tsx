@@ -156,8 +156,8 @@ function Landing() {
               </h1>
               <p className="mt-5 max-w-2xl text-base leading-relaxed text-muted-foreground md:text-lg">
                 {BRAND_NAME} connects presence, customer discovery, reach, conversion, CRM, revenue
-                and profit into a single instrument panel — so you always know what is working,
-                what is leaking, and what to do next.
+                and profit into a single instrument panel — so you always know what is working, what
+                is leaking, and what to do next.
               </p>
               <div className="mt-8 flex flex-wrap items-center gap-3">
                 <Link to="/auth">
@@ -333,8 +333,18 @@ function Landing() {
 
       <footer className="border-t border-border">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-5 py-8 text-xs text-muted-foreground sm:flex-row">
-          <span>© {new Date().getFullYear()} {BRAND_FULL}</span>
+          <span>
+            © {new Date().getFullYear()} {BRAND_FULL}
+          </span>
           <span>Presence · Reach · Conversion · Revenue · Profit</span>
+          <div className="flex items-center gap-4">
+            <Link to="/legal/terms" className="hover:text-primary">
+              Terms
+            </Link>
+            <Link to="/legal/privacy" className="hover:text-primary">
+              Privacy
+            </Link>
+          </div>
         </div>
       </footer>
     </div>
