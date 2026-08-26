@@ -1,4 +1,15 @@
-import { pgTable, uuid, text, numeric, boolean, date, timestamp, unique, check, index } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  uuid,
+  text,
+  numeric,
+  boolean,
+  date,
+  timestamp,
+  unique,
+  check,
+  index,
+} from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { users } from "./users";
 
@@ -29,8 +40,12 @@ export const organizations = pgTable(
     avgOrderValue: numeric("avg_order_value", { precision: 12, scale: 2 }).default("0"),
     monthlyRevenueRange: text("monthly_revenue_range"),
     mainGoal: text("main_goal"),
-    goals: text("goals").array().default(sql`'{}'::text[]`),
-    acquisitionChannels: text("acquisition_channels").array().default(sql`'{}'::text[]`),
+    goals: text("goals")
+      .array()
+      .default(sql`'{}'::text[]`),
+    acquisitionChannels: text("acquisition_channels")
+      .array()
+      .default(sql`'{}'::text[]`),
     onboardingStatus: text("onboarding_status").notNull().default("not_started"),
     onboardingCompleted: boolean("onboarding_completed").notNull().default(false),
     internalNotes: text("internal_notes"),
@@ -42,6 +57,15 @@ export const organizations = pgTable(
     // through, so a suspended client can still be reached and fixed.
     billingStatus: text("billing_status").notNull().default("active"),
     nextPaymentDueDate: date("next_payment_due_date"),
+    // One-time-payment activation gate: a hashed code (same pattern as
+    // organizationInvites.tokenHash below) generated once when the org is
+    // created and shown to the operator a single time — never re-displayable
+    // in plaintext. Handed to the client only once the remaining setup fee
+    // clears. activatedAt is null (frozen: full read access, no writes — see
+    // requireOrgWrite in authz.server.ts) until the correct code is entered,
+    // then set once and never cleared — there is no re-locking.
+    activationCodeHash: text("activation_code_hash"),
+    activatedAt: timestamp("activated_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -94,7 +118,9 @@ export const organizationInvites = pgTable(
     email: text("email").notNull(),
     role: text("role").notNull().default("staff"),
     tokenHash: text("token_hash").notNull(),
-    invitedByUserId: uuid("invited_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    invitedByUserId: uuid("invited_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     acceptedAt: timestamp("accepted_at", { withTimezone: true }),
     revokedAt: timestamp("revoked_at", { withTimezone: true }),

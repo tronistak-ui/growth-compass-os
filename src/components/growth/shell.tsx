@@ -1,9 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { resendVerificationEmail } from "@/server/functions/email-verification";
+import { activateOrganization } from "@/server/functions/organizations";
 import {
   LayoutDashboard,
   Globe,
@@ -101,7 +102,10 @@ function NotificationsBell() {
             {notifications.map((n) => (
               <DropdownMenuItem
                 key={n.id}
-                className={cn("flex flex-col items-start gap-0.5 whitespace-normal", !n.read_at && "bg-primary/5")}
+                className={cn(
+                  "flex flex-col items-start gap-0.5 whitespace-normal",
+                  !n.read_at && "bg-primary/5",
+                )}
                 onClick={() => !n.read_at && markRead.mutate(n.id)}
               >
                 <span className="text-xs font-medium text-ink">{n.title}</span>
@@ -140,6 +144,7 @@ export function AppShell({
   const [open, setOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [resending, setResending] = useState(false);
+  const [activationCode, setActivationCode] = useState("");
 
   async function signOut() {
     await qc.cancelQueries();
@@ -147,6 +152,17 @@ export function AppShell({
     await signOutSession();
     navigate({ to: "/auth", replace: true });
   }
+
+  const activate = useMutation({
+    mutationFn: () =>
+      activateOrganization({ data: { orgId: org?.["id"] as string, code: activationCode } }),
+    onSuccess: () => {
+      toast.success("Unlocked — full access enabled");
+      setActivationCode("");
+      void qc.invalidateQueries();
+    },
+    onError: (e: any) => toast.error(e.message ?? "Incorrect activation code"),
+  });
 
   async function resendVerification() {
     setResending(true);
@@ -162,9 +178,12 @@ export function AppShell({
 
   const billingStatus = org?.["billing_status"] as string | undefined;
   const nextDue = org?.["next_payment_due_date"] as string | undefined;
+  const isFrozen = !!org && !org["activated_at"] && !staffAccess;
   // Staff can always get in — a suspended client still needs to be reachable.
   if (billingStatus === "suspended" && !staffAccess) {
-    return <SuspendedScreen orgName={String(org?.["name"] ?? "This business")} onSignOut={signOut} />;
+    return (
+      <SuspendedScreen orgName={String(org?.["name"] ?? "This business")} onSignOut={signOut} />
+    );
   }
 
   return (
@@ -277,7 +296,9 @@ export function AppShell({
               onClick={() => setSearchOpen(true)}
             >
               <Search className="size-3.5" /> Search
-              <kbd className="rounded border border-border bg-surface-2 px-1.5 py-0.5 text-[10px]">⌘K</kbd>
+              <kbd className="rounded border border-border bg-surface-2 px-1.5 py-0.5 text-[10px]">
+                ⌘K
+              </kbd>
             </Button>
             <Button
               variant="ghost"
@@ -355,10 +376,40 @@ export function AppShell({
         </header>
 
         <main className="mx-auto w-full max-w-[1400px] px-4 py-6 sm:px-6 sm:py-8">
+          {isFrozen && (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (activationCode.trim()) activate.mutate();
+              }}
+              className="mb-4 flex flex-wrap items-center gap-2.5 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-sm"
+            >
+              <span className="font-medium text-ink">
+                This account isn't activated yet — you can look around, but adding or changing
+                anything is locked until setup is fully paid for.
+              </span>
+              <div className="ml-auto flex items-center gap-2">
+                <input
+                  value={activationCode}
+                  onChange={(e) => setActivationCode(e.target.value)}
+                  placeholder="Activation code"
+                  className="h-8 w-40 rounded-md border border-border bg-background px-2.5 text-xs uppercase outline-none focus:border-primary"
+                />
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={activate.isPending || !activationCode.trim()}
+                >
+                  {activate.isPending ? "Checking…" : "Unlock"}
+                </Button>
+              </div>
+            </form>
+          )}
           {billingStatus === "overdue" && !staffAccess && (
             <div className="mb-4 rounded-lg border border-warning/30 bg-warning/10 px-4 py-2.5 text-sm text-warning">
-              Your payment is overdue{nextDue ? ` (was due ${new Date(nextDue).toLocaleDateString()})` : ""} —
-              please settle it soon to avoid losing access.
+              Your payment is overdue
+              {nextDue ? ` (was due ${new Date(nextDue).toLocaleDateString()})` : ""} — please
+              settle it soon to avoid losing access.
             </div>
           )}
           {profile && !profile["email_verified_at"] && (

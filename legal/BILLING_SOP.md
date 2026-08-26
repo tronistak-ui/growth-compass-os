@@ -1,53 +1,25 @@
 # Billing SOP — internal only, not client-facing
 
-Purpose: turn `active → overdue → suspended` from a fresh judgment call each
-month into a rule you just follow. Edit the numbers below to match what you
-actually want to promise (they also feed the Terms of Service draft, Section 4
-— keep the two in sync).
+The `active` / `overdue` / `suspended` mechanism this describes still exists
+in the app (enforced server-side in `src/server/authz.server.ts`, settable
+from `/admin`) — but it was built for a recurring monthly subscription that
+no longer exists. Under the current one-time-payment terms (₹7,500 before
+setup, ₹7,500 before handoff — see [Terms of Service](./TERMS_OF_SERVICE.md)
+§4), the second payment happens *before* a client ever gets access, so
+there's no "already-active client stops paying" scenario for this to
+routinely govern. There is no weekly bank-check habit to run anymore.
 
-## The rule
+## What it's still for
 
-| Day relative to `next_payment_due_date` | Status you set | Action |
-|---|---|---|
-| Due date, payment received | — | Confirm transfer, set `active`, advance `next_payment_due_date` by one month |
-| Due date, payment **not** received | `overdue` | Send a friendly reminder (email/WhatsApp) |
-| **+7 days**, still not received | `overdue` (unchanged) | Send a firmer follow-up |
-| **+14 days**, still not received | `suspended` | Client locked out; send a final notice explaining why and how to restore access |
-| Any time after suspension, payment received | `active` | Restore access same day, advance due date from the date paid (not the original due date) |
-
-_(These are suggested defaults — 7/14 days is generous for a low-friction
-manual bank-transfer setup. Tighten it if late payment becomes a real
-problem; loosen it if you'd rather never lock out a client over a few days'
-delay.)_
-
-## Who does it
-
-Right now: you, manually, from `/admin`, after checking your bank statement
-for the transfer. There's no automated payment-webhook — every status change
-is you clicking a status dropdown for that organization after confirming the
-money actually arrived.
-
-## Weekly habit
-
-Pick one fixed day/time (e.g. every Monday morning) to:
-1. Check the bank account for transfers received since last check
-2. Match each transfer to an organization by name/reference
-3. Set that organization to `active` and advance its due date
-4. Scan for any organization past its grace period and flip to `overdue` /
-   `suspended` per the table above
+An occasional manual tool, not a routine — from `/admin`, you can flip an
+organization to `suspended` to lock its own members out of their data (you,
+as `platform_admin`/`support`, always retain access to fix things or export
+their data). Reach for this for something like a payment dispute or a
+contract violation, not as part of the normal delivery flow.
 
 ## What "suspended" actually does in the app
 
 Enforced server-side (`requireOrgMember` / `requireOrgWrite` in
 `src/server/authz.server.ts`) — a suspended org's own members are fully
-locked out of their data. `platform_admin` / `support` roles (you) always
-bypass this, so you can still open a suspended client's account to fix
-billing or export their data before/after the lockout.
-
-## Known gap
-
-Overdue/suspended checks currently compare dates in UTC (see the Launch
-Execution Plan, Phase 4 — this is one of the three items being fixed now).
-Until that fix ships, a client near the India day-boundary could see their
-status flip a few hours off from local midnight — not a billing-accuracy
-problem, just a display-timing one.
+locked out of their data. `platform_admin` / `support` roles always bypass
+this.

@@ -14,7 +14,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useState } from "react";
-import { listAllOrganizations, setOnboardingStage, saveOrgNotes } from "@/server/functions/organizations";
+import {
+  listAllOrganizations,
+  setOnboardingStage,
+  saveOrgNotes,
+  regenerateActivationCode,
+} from "@/server/functions/organizations";
 import { getOrgActivity, getSystemHealthCheck, claimPlatformAdmin } from "@/server/functions/admin";
 import { useIsAdmin, useHasRole, setStoredOrgId } from "@/lib/growth";
 import { money } from "@/lib/metrics";
@@ -37,7 +42,10 @@ export const Route = createFileRoute("/_authenticated/admin")({
       { title: `Admin — ${BRAND_FULL}` },
       { name: "description", content: "Support access, system health and this account's setup." },
       { property: "og:title", content: `Admin — ${BRAND_FULL}` },
-      { property: "og:description", content: "Support access, system health and this account's setup." },
+      {
+        property: "og:description",
+        content: "Support access, system health and this account's setup.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -54,6 +62,7 @@ type OrgRow = {
   onboarding_status: string | null;
   onboarding_completed: boolean | null;
   internal_notes: string | null;
+  activated_at: string | null;
 };
 
 function AdminPage() {
@@ -64,6 +73,7 @@ function AdminPage() {
   const [notesDraft, setNotesDraft] = useState("");
   const [savingNotes, setSavingNotes] = useState(false);
   const [claimSecret, setClaimSecret] = useState("");
+  const [regenCode, setRegenCode] = useState<string | null>(null);
   const qc = useQueryClient();
 
   const orgs = useQuery({
@@ -109,6 +119,15 @@ function AdminPage() {
       void qc.invalidateQueries({ queryKey: ["admin", "organizations"] });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not save");
+    }
+  }
+
+  async function regenerateCode(id: string) {
+    try {
+      const { activation_code } = await regenerateActivationCode({ data: { orgId: id } });
+      setRegenCode(activation_code);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not generate a new code");
     }
   }
 
@@ -253,6 +272,7 @@ function AdminPage() {
                 <th className="py-2">Name</th>
                 <th className="py-2">Industry</th>
                 <th className="py-2">Setup</th>
+                <th className="py-2">Activation</th>
                 <th className="py-2">Leads</th>
                 <th className="py-2">Customers</th>
                 <th className="py-2">Revenue</th>
@@ -285,6 +305,27 @@ function AdminPage() {
                           ))}
                         </SelectContent>
                       </Select>
+                    </td>
+                    <td className="py-2">
+                      {r.activated_at ? (
+                        <span className="rounded-full bg-success/10 px-2 py-0.5 text-xs font-medium text-success">
+                          Unlocked
+                        </span>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <span className="rounded-full bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning">
+                            Frozen
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-1.5 text-[11px] text-muted-foreground hover:text-primary"
+                            onClick={() => void regenerateCode(r.id)}
+                          >
+                            New code
+                          </Button>
+                        </div>
+                      )}
                     </td>
                     <td className="num py-2">{a?.leads ?? 0}</td>
                     <td className="num py-2">{a?.customers ?? 0}</td>
@@ -321,7 +362,7 @@ function AdminPage() {
               })}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="py-6 text-center text-muted-foreground">
+                  <td colSpan={10} className="py-6 text-center text-muted-foreground">
                     No business set up yet.
                   </td>
                 </tr>
@@ -349,6 +390,26 @@ function AdminPage() {
             <Button disabled={savingNotes} onClick={() => void saveNotes()}>
               Save notes
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!regenCode} onOpenChange={(open) => !open && setRegenCode(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>New activation code</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            The previous code no longer works. This one is shown once — hand it to the client only
+            once the remaining setup fee is paid.
+          </p>
+          <div className="rounded-lg border border-border bg-surface-2 px-4 py-3 text-center">
+            <div className="font-display text-2xl font-semibold tracking-wider text-ink">
+              {regenCode}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setRegenCode(null)}>Done</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

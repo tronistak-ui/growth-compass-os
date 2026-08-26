@@ -6,6 +6,7 @@ import { requireAuth } from "../auth/middleware";
 import { hasAnyRole, requireOrgMember } from "../authz.server";
 import { toWireRow, toWireRows, wireColumn } from "../wire";
 import { ROW_TABLES, SINGLETON_TABLES } from "./rows";
+import { generateActivationCode, hashActivationCode } from "../auth/activation.server";
 import { organizations, organizationMembers, presenceProfiles, positioning } from "@/db/schema";
 
 /** Organizations the caller belongs to — platform_admin/support/auditor see every org. */
@@ -64,6 +65,10 @@ export const createOrganization = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .validator((input: unknown) => createOrganizationInput.parse(input))
   .handler(async ({ data, context }) => {
+    // Generated once, here, and never retrievable again in plaintext —
+    // the response below is the only place this value ever appears.
+    const activationCode = generateActivationCode();
+
     const created = await db.transaction(async (tx) => {
       const [org] = await tx
         .insert(organizations)
@@ -91,6 +96,7 @@ export const createOrganization = createServerFn({ method: "POST" })
           goals: data.goals,
           acquisitionChannels: data.acquisitionChannels,
           onboardingStatus: "audit",
+          activationCodeHash: hashActivationCode(activationCode),
         })
         .returning();
       if (!org) throw new Error("Failed to create business");
@@ -106,7 +112,55 @@ export const createOrganization = createServerFn({ method: "POST" })
       return org;
     });
 
-    return toWireRow(organizations, created);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const wire: Record<string, any> = toWireRow(organizations, created);
+    wire["activation_code"] = activationCode;
+    return wire;
+  });
+
+const activateInput = z.object({ orgId: z.string().uuid(), code: z.string().min(1) });
+
+/**
+ * Attemptable by a frozen (not-yet-activated) member — this deliberately
+ * uses requireOrgMember, not requireOrgWrite, since requiring write access
+ * to unlock write access would be a lock with no key.
+ */
+export const activateOrganization = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .validator((input: unknown) => activateInput.parse(input))
+  .handler(async ({ data, context }) => {
+    await requireOrgMember(context.userId, data.orgId);
+    const [org] = await db
+      .select()
+      .from(organizations)
+      .where(eq(organizations.id, data.orgId))
+      .limit(1);
+    if (!org) throw new Error("Business not found");
+    if (org.activatedAt) return { ok: true };
+    if (!org.activationCodeHash || hashActivationCode(data.code) !== org.activationCodeHash) {
+      throw new Error("Incorrect activation code");
+    }
+    await db
+      .update(organizations)
+      .set({ activatedAt: new Date() })
+      .where(eq(organizations.id, data.orgId));
+    return { ok: true };
+  });
+
+const regenerateActivationInput = z.object({ orgId: z.string().uuid() });
+
+/** Admin-only recovery path if the original code was lost before it reached the client. */
+export const regenerateActivationCode = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .validator((input: unknown) => regenerateActivationInput.parse(input))
+  .handler(async ({ data, context }) => {
+    await requireAdminOrSupport(context.userId);
+    const activationCode = generateActivationCode();
+    await db
+      .update(organizations)
+      .set({ activationCodeHash: hashActivationCode(activationCode) })
+      .where(eq(organizations.id, data.orgId));
+    return { activation_code: activationCode };
   });
 
 /** Platform-wide list for the admin console — every organisation, regardless of membership. */
@@ -145,7 +199,10 @@ export const saveOrgNotes = createServerFn({ method: "POST" })
   .validator((input: unknown) => saveNotesInput.parse(input))
   .handler(async ({ data, context }) => {
     await requireAdminOrSupport(context.userId);
-    await db.update(organizations).set({ internalNotes: data.notes }).where(eq(organizations.id, data.id));
+    await db
+      .update(organizations)
+      .set({ internalNotes: data.notes })
+      .where(eq(organizations.id, data.id));
     return { ok: true };
   });
 
@@ -192,12 +249,19 @@ export const exportOrgData = createServerFn({ method: "GET" })
   .handler(async ({ data, context }) => {
     await requireOrgMember(context.userId, data.orgId);
 
-    const [org] = await db.select().from(organizations).where(eq(organizations.id, data.orgId)).limit(1);
+    const [org] = await db
+      .select()
+      .from(organizations)
+      .where(eq(organizations.id, data.orgId))
+      .limit(1);
     if (!org) throw new Error("Business not found");
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const tables: Record<string, Record<string, any>[]> = {};
-    for (const [name, table] of [...Object.entries(ROW_TABLES), ...Object.entries(SINGLETON_TABLES)]) {
+    for (const [name, table] of [
+      ...Object.entries(ROW_TABLES),
+      ...Object.entries(SINGLETON_TABLES),
+    ]) {
       const orgCol = wireColumn(table, "organization_id");
       const rows = await db.select().from(table).where(eq(orgCol, data.orgId));
       tables[name] = toWireRows(table, rows as Record<string, unknown>[]);
@@ -254,7 +318,11 @@ export const deleteOrganization = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .validator((input: unknown) => deleteOrgInput.parse(input))
   .handler(async ({ data, context }) => {
-    const [org] = await db.select().from(organizations).where(eq(organizations.id, data.orgId)).limit(1);
+    const [org] = await db
+      .select()
+      .from(organizations)
+      .where(eq(organizations.id, data.orgId))
+      .limit(1);
     if (!org) throw new Error("Business not found");
 
     const isPlatformStaff = await hasAnyRole(context.userId, ["platform_admin", "support"]);

@@ -19,6 +19,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { BRAND_FULL, BRAND_TAGLINE } from "@/lib/brand";
 
@@ -44,6 +51,8 @@ function Onboarding() {
   const qc = useQueryClient();
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [activationCode, setActivationCode] = useState<string | null>(null);
+  const [pendingOrgId, setPendingOrgId] = useState<string | null>(null);
   const [form, setForm] = useState<Record<string, any>>({
     name: "",
     niche: "Local Brand",
@@ -124,7 +133,15 @@ function Onboarding() {
       if (created?.["id"]) setStoredOrgId(created["id"] as string);
       await qc.invalidateQueries();
       toast.success("Workspace ready");
-      navigate({ to: "/dashboard" });
+      // The activation code only ever appears in this one response — hold
+      // navigation until it's been shown and acknowledged, rather than
+      // risk it flashing past in a toast.
+      if (created?.["activation_code"]) {
+        setPendingOrgId(created["id"] as string);
+        setActivationCode(created["activation_code"] as string);
+      } else {
+        navigate({ to: "/dashboard" });
+      }
     } catch (error) {
       setSaving(false);
       console.error("Create organization failed", error);
@@ -136,7 +153,9 @@ function Onboarding() {
     <div className="dotfield min-h-screen bg-background px-4 py-10">
       <div className="mx-auto w-full max-w-3xl">
         <div className="mb-6 text-center">
-          <h1 className="font-display text-2xl font-semibold text-ink">Set up your {BRAND_TAGLINE}</h1>
+          <h1 className="font-display text-2xl font-semibold text-ink">
+            Set up your {BRAND_TAGLINE}
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Three short steps. Everything can be edited later in Settings.
           </p>
@@ -347,6 +366,43 @@ function Onboarding() {
           </div>
         </div>
       </div>
+
+      <Dialog open={!!activationCode}>
+        <DialogContent
+          className="sm:max-w-md"
+          onInteractOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
+          <DialogHeader>
+            <DialogTitle>Save this activation code</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            The workspace is unlocked for you to configure now, but a client member will only get
+            full read/write access once this code is entered from the banner shown on their screen.
+            This code is shown once — it cannot be retrieved again (only regenerated from the admin
+            console, invalidating this one).
+          </p>
+          <div className="rounded-lg border border-border bg-surface-2 px-4 py-3 text-center">
+            <div className="font-display text-2xl font-semibold tracking-wider text-ink">
+              {activationCode}
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Hand this to the client only once the remaining setup fee is paid — not before.
+          </p>
+          <DialogFooter>
+            <Button
+              onClick={() => {
+                setActivationCode(null);
+                if (pendingOrgId) setStoredOrgId(pendingOrgId);
+                navigate({ to: "/dashboard" });
+              }}
+            >
+              I've saved it — continue
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
