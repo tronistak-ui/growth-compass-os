@@ -62,6 +62,9 @@ function FinancePage() {
     value: String(r["id"]),
     label: `${String(r["name"])} (${String(r["channel"])})`,
   }));
+  const campaignNameById = new Map(campaignOptions.map((c) => [c.value, c.label]));
+  const campaignName = (row: Record<string, unknown>) =>
+    campaignNameById.get(String(row["campaign_id"] ?? "")) ?? "";
 
   return (
     <AppShell title="Finance" subtitle="Money in, money out, and what is actually left">
@@ -182,7 +185,8 @@ function FinancePage() {
                     label: "Campaign (for CAC)",
                     type: "select" as const,
                     options: campaignOptions,
-                    inTable: false,
+                    render: (r: Record<string, unknown>) => campaignName(r) || "—",
+                    csvValue: (r: Record<string, unknown>) => campaignName(r),
                   },
                 ]
               : []),
