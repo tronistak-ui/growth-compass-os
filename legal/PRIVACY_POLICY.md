@@ -8,8 +8,8 @@ _Last updated: [date you publish this]_
 ## 1. Who this is
 
 TrendZypher Growth OS ("**TrendZypher**", "**we**", "**us**") is provided by
-**[Your legal name / business name]**, based in **[City, State, India]**.
-For anything in this policy, contact **[support email address]**.
+**TrendZypher**, based in **Andhra Pradesh, India**. For anything in this
+policy, contact **trendzypher.reports@gmail.com**.
 
 This policy applies to the TrendZypher Growth OS application deployed for
 your business ("**you**", "**the Customer**") and used by you and staff you
@@ -62,9 +62,11 @@ Your data is stored on a Postgres database running on cloud infrastructure
 **you provision and own** (e.g. an Oracle Cloud account in your name), which
 we configure and deploy on your behalf during setup. Because this
 infrastructure is yours, its ongoing availability, backups, and continued
-payment to the cloud provider are **[your responsibility once handed over /
-covered under an ongoing arrangement described here — decide and state
-which]**.
+payment to your cloud provider are **your responsibility once handed
+over** — we do not own or manage your infrastructure or your data. For
+**15 days** after handoff, we're available to help with setup-related
+issues (see the [Terms of Service](./TERMS_OF_SERVICE.md)); after that
+window, this is entirely your responsibility.
 
 Data from a third-party connection you authorize (Google Business Profile,
 Instagram) is fetched and stored within your own deployment only, encrypted
@@ -75,11 +77,10 @@ disconnect these at any time from within the Service.
 
 - **You and staff you invite** to your organization — team access is managed
   entirely by you from within the Service.
-- **Us** — **[state the truth here: do we retain ongoing administrative
-  access to the server we set up for you after handoff, e.g. for applying
-  updates or providing support you request? Or is access fully transferred
-  and revoked on our side once setup is complete, with support handled some
-  other way? This is a real decision, not a formality — state it plainly.]**
+- **Us** — during the **15-day support window** after handoff, we may
+  access your deployment to help resolve setup issues you report. After
+  that window, we do not have any ongoing access unless you specifically
+  ask us to, for a new, separate engagement.
 - **Nobody else.** Because your deployment is dedicated to your business
   alone, there is no other organization's data anywhere on your instance.
 
@@ -92,7 +93,7 @@ From **Settings**, within the Service, you can at any time:
 
 You do not need to contact us for either of these — they're self-service.
 For anything else (correcting data you can't fix yourself, a question about
-this policy), contact **[support email]**.
+this policy), contact **trendzypher.reports@gmail.com**.
 
 ## 8. Cookies & sessions
 
@@ -107,22 +108,19 @@ change takes effect.
 ## 10. Grievance / contact
 
 For any privacy question, complaint, or data request:
-**[support email]** — **[phone number, if you want to publish one]**
+**trendzypher.reports@gmail.com**
 
 ---
 
 ### Notes for you (delete before publishing)
 
-- This draft assumes India-based operation. If you incorporate a company
-  later, update "Who this is" with the registered entity name.
-- **Section 5 and 6 have a real decision embedded that the old draft didn't
-  need to make**: since each client's data lives on infrastructure *they*
-  own, you need to actually decide (not just word carefully) whether you
-  keep any ongoing access to a client's server after handoff — for applying
-  security updates, fixing bugs, or support — or whether you hand over full
-  control and walk away, with any future work being a separate, explicit
-  engagement. Both are legitimate models; the Terms of Service and this
-  policy both need to say the same thing, whichever you pick.
+- **"TrendZypher" is used as the provider name because there is no
+  registered legal entity yet.** Operating as a sole proprietor under a
+  business name is normal and legal for a first client in India, but get
+  a CA/lawyer's confirmation on the specifics (GST registration threshold,
+  Shops & Establishment registration, etc.) before real money changes
+  hands — not as a blocker, just due diligence. Update "Who this is" once
+  you register a company, or sooner if a CA advises it.
 - If any client is an individual consumer (not just a business), consider
   whether India's DPDP Act 2023 grievance-officer requirements apply once
   you're operating at scale — worth a real lawyer's fifteen minutes, not

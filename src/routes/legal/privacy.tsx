@@ -12,6 +12,9 @@ export const Route = createFileRoute("/legal/privacy")({
 });
 
 const contact = SUPPORT_EMAIL || "[support email not yet configured]";
+const PROVIDER_NAME = "TrendZypher";
+const PROVIDER_LOCATION = "Andhra Pradesh, India";
+const SUPPORT_WINDOW_DAYS = 15;
 
 function PrivacyPage() {
   return (
@@ -41,8 +44,8 @@ function PrivacyPage() {
 
           <Section title="1. Who this is">
             <P>
-              {BRAND_FULL} ("we", "us") is provided by [your legal name / business name], based in
-              [city, state]. For anything in this policy, contact {contact}.
+              {BRAND_FULL} ("we", "us") is provided by {PROVIDER_NAME}, based in {PROVIDER_LOCATION}
+              . For anything in this policy, contact {contact}.
             </P>
             <P>
               This policy applies to the {BRAND_FULL} application deployed for your business ("you",
@@ -110,9 +113,15 @@ function PrivacyPage() {
             <P>
               Your data is stored on a Postgres database running on cloud infrastructure you
               provision and own (e.g. an Oracle Cloud account in your name), which we configure and
-              deploy on your behalf during setup. [State here whether ongoing backups, uptime, and
-              continued payment to the cloud provider are your responsibility once handed over, or
-              covered under an ongoing arrangement.]
+              deploy on your behalf during setup. Because this infrastructure is yours, its ongoing
+              availability, backups, and continued payment to your cloud provider are your
+              responsibility once handed over — we do not own or manage your infrastructure or your
+              data. For {SUPPORT_WINDOW_DAYS} days after handoff, we're available to help with
+              setup-related issues (see the{" "}
+              <Link to="/legal/terms" className="text-primary underline underline-offset-2">
+                Terms of Service
+              </Link>
+              ); after that window, this is entirely your responsibility.
             </P>
             <P>
               Data from a third-party connection you authorize (Google Business Profile, Instagram)
@@ -126,7 +135,7 @@ function PrivacyPage() {
             <Ul
               items={[
                 "You and staff you invite to your organization — team access is managed entirely by you from within the Service.",
-                "Us — [state plainly whether we retain ongoing administrative access to the server we set up for you after handoff, e.g. for applying updates or providing support you request, or whether access is fully transferred and revoked on our side once setup is complete].",
+                `Us — during the ${SUPPORT_WINDOW_DAYS}-day support window after handoff, we may access your deployment to help resolve setup issues you report. After that window, we do not have any ongoing access unless you specifically ask us to, for a new, separate engagement.`,
                 "Nobody else. Because your deployment is dedicated to your business alone, there is no other organization's data anywhere on your instance.",
               ]}
             />

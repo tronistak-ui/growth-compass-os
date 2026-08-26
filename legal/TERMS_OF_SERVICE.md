@@ -7,15 +7,15 @@ _Last updated: [date you publish this]_
 
 ## 1. The deal
 
-TrendZypher Growth OS ("**the Service**") is provided by
-**[Your legal name / business name]** ("**we**", "**us**") to the business
-("**you**", "**the Customer**") that engages us.
+TrendZypher Growth OS ("**the Service**") is provided by **TrendZypher**
+("**we**", "**us**") to the business ("**you**", "**the Customer**") that
+engages us.
 
 By paying the setup fee, you agree to these terms.
 
 ## 2. What it costs
 
-**One-time setup fee: ₹[amount].** This is a single payment, not a
+**One-time setup fee: ₹15,000.** This is a single payment, not a
 subscription. It covers:
 - Deploying a dedicated instance of the Service on cloud infrastructure you
   provision (e.g. your own Oracle Cloud account)
@@ -27,8 +27,9 @@ There is no recurring fee charged by us for use of the Service itself. Your
 only ongoing cost is whatever your cloud provider (e.g. Oracle Cloud) charges
 you directly for hosting — a cost you pay them, not us.
 
-Payment is made by **[bank transfer / UPI / your method]** to the account
-details we provide, before **[work begins / handoff, pick one]**.
+Payment is split in two: **₹7,500 before setup work begins**, and the
+remaining **₹7,500 once setup is complete**, before handoff. Payment is made
+by **bank transfer or UPI** to the account details we provide.
 
 ## 3. What it includes
 
@@ -37,42 +38,28 @@ Presence, Customer Discovery, Reach, Conversion, Customer Management, Revenue
 Growth, Financial Control, and Positioning tooling. You can invite as many
 staff as you need under your organization — there is no seat limit.
 
-Support: **[what you're actually committing to post-handoff — see Section 6,
-this needs to say the same thing]**.
+Support: **15 days of free support after handoff — see Section 6.**
 
 ## 4. Payment terms
 
-The setup fee is due **[before work begins / on completion, pick one]**.
-Because this is a one-time engagement rather than a subscription, there is
-no ongoing account status (like "active" or "suspended") tracked by the
-Service — once delivered, the deployment is yours to use indefinitely.
+**₹7,500** of the setup fee is due before work begins; the remaining
+**₹7,500** is due once setup is complete, before or at handoff. Because this
+is a one-time engagement rather than a subscription, there is no ongoing
+account status (like "active" or "suspended") tracked by the Service — once
+delivered, the deployment is yours to use indefinitely.
 
 ## 5. Refunds
 
-**[Your policy — e.g. "non-refundable once setup work has started" or
-"refundable in full if cancelled within 7 days and no substantial work has
-begun."]**
+**The setup fee, both installments, is non-refundable.**
 
 ## 6. After handoff: support and updates
 
-Because your deployment runs on infrastructure you own, what happens after
-we hand it over is a decision you need to state plainly here — pick one and
-fill in the details:
-
-- **[Option A — clean handoff]:** Once delivered, our engagement ends. We do
-  not retain access to your server. Any future changes, updates, or support
-  are a separate, new engagement you can request and pay for individually.
-- **[Option B — included support window]:** For **[e.g. 30 days]** after
-  handoff, we'll fix any setup issues and answer questions at no extra
-  charge, reachable at **[support email]**. After that window, further work
-  is a separate engagement.
-- **[Option C — ongoing retainer, if you decide to offer one]:** State the
-  fee, what it covers (e.g. security updates, bug fixes), and how to cancel
-  it.
-
-Whichever you choose, **Section 6 of the Privacy Policy needs to say the
-same thing** about whether we retain server access after handoff — don't
-let the two documents disagree.
+For **15 days** after handoff, we'll fix any setup issues and answer
+questions at no extra charge, reachable at **trendzypher.reports@gmail.com**.
+After that window, further work — updates, bug fixes, or changes — is a
+separate engagement you can request and pay for individually. We do not
+retain ongoing access to your server beyond this window unless you
+specifically ask us to, for a new engagement.
 
 ## 7. Cancellation
 
@@ -109,8 +96,8 @@ infrastructure we operate, its ongoing availability after handoff depends on
 that infrastructure remaining operational — for example, your cloud
 provider account staying active and paid. We are not responsible for outages
 caused by your hosting provider, your own infrastructure management, or
-third-party API outages for connected accounts (Google, Instagram, etc.)
-after handoff, except as covered under any support arrangement in Section 6.
+third-party API outages for connected accounts (Google, Instagram, etc.),
+except during the 15-day support window described in Section 6.
 
 ## 10. Limitation of liability
 
@@ -122,29 +109,26 @@ use of the Service.
 ## 11. Changes to these terms
 
 We'll notify you by email before any material change takes effect that
-affects an active support/retainer arrangement under Section 6.
+affects an active support window under Section 6.
 
 ## 12. Governing law
 
-These terms are governed by the laws of **[India / your state]**, and any
-dispute will be handled in the courts of **[your city]**.
+These terms are governed by the laws of **India**.
 
 ## 13. Contact
 
-**[support email]**
+**trendzypher.reports@gmail.com**
 
 ---
 
 ### Notes for you (delete before publishing)
 
-- **Section 6 is the one real decision this rewrite can't make for you.**
-  The old draft's whole billing-status system existed because there was a
-  recurring subscription to enforce. That's gone now — but it leaves a real
-  open question your clients will ask: "what happens if something breaks
-  next month?" Pick Option A, B, or C (or write your own) and be specific,
-  because it's also what a lawyer needs to see to review this properly.
-- Fill in the setup-fee amount and refund policy with what you'll actually
-  honor.
+- **"TrendZypher" is used as the provider name because there is no
+  registered legal entity yet.** Operating as a sole proprietor under a
+  business name is normal and legal for a first client in India, but get a
+  CA/lawyer's confirmation on the specifics (GST registration threshold,
+  Shops & Establishment registration, etc.) before real money changes
+  hands — not as a blocker, just due diligence.
 - This is now wired up live at `/legal/terms` in the app (see
   `src/routes/legal/terms.tsx`) and linked from the signup page footer. If
   you edit the wording here, update that file to match — the live page is

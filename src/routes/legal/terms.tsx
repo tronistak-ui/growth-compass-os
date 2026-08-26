@@ -12,6 +12,10 @@ export const Route = createFileRoute("/legal/terms")({
 });
 
 const contact = SUPPORT_EMAIL || "[support email not yet configured]";
+const PROVIDER_NAME = "TrendZypher";
+const SETUP_FEE = "₹15,000";
+const HALF_FEE = "₹7,500";
+const SUPPORT_WINDOW_DAYS = 15;
 
 function TermsPage() {
   return (
@@ -41,15 +45,15 @@ function TermsPage() {
 
           <Section title="1. The deal">
             <P>
-              {BRAND_FULL} ("the Service") is provided by [your legal name / business name] ("we",
-              "us") to the business ("you", "the Customer") that engages us. By paying the setup
-              fee, you agree to these terms.
+              {BRAND_FULL} ("the Service") is provided by {PROVIDER_NAME} ("we", "us") to the
+              business ("you", "the Customer") that engages us. By paying the setup fee, you agree
+              to these terms.
             </P>
           </Section>
 
           <Section title="2. What it costs">
             <P className="font-medium text-foreground">
-              One-time setup fee: [amount]. This is a single payment, not a subscription.
+              One-time setup fee: {SETUP_FEE}. This is a single payment, not a subscription.
             </P>
             <Ul
               items={[
@@ -61,8 +65,9 @@ function TermsPage() {
             <P>
               There is no recurring fee charged by us for use of the Service itself. Your only
               ongoing cost is whatever your cloud provider charges you directly for hosting — a cost
-              you pay them, not us. Payment is made by [bank transfer / UPI / your method] before
-              [work begins / handoff].
+              you pay them, not us. Payment is split in two: {HALF_FEE} before setup work begins,
+              and the remaining {HALF_FEE} once setup is complete, before handoff. Payment is made
+              by bank transfer or UPI to the account details we provide.
             </P>
           </Section>
 
@@ -73,30 +78,31 @@ function TermsPage() {
               and Positioning tooling. You can invite as many staff as you need under your
               organization — there is no seat limit.
             </P>
-            <P>Support: [what you're actually committing to post-handoff — see Section 6].</P>
+            <P>
+              Support: {SUPPORT_WINDOW_DAYS} days of free support after handoff — see Section 6.
+            </P>
           </Section>
 
           <Section title="4. Payment terms">
             <P>
-              The setup fee is due [before work begins / on completion]. Because this is a one-time
-              engagement rather than a subscription, there is no ongoing account status tracked by
-              the Service — once delivered, the deployment is yours to use indefinitely.
+              {HALF_FEE} of the setup fee is due before work begins; the remaining {HALF_FEE} is due
+              once setup is complete, before or at handoff. Because this is a one-time engagement
+              rather than a subscription, there is no ongoing account status tracked by the Service
+              — once delivered, the deployment is yours to use indefinitely.
             </P>
           </Section>
 
           <Section title="5. Refunds">
-            <P>
-              [Your policy — e.g. "non-refundable once setup work has started" or "refundable in
-              full if cancelled within 7 days and no substantial work has begun."]
-            </P>
+            <P>The setup fee, both installments, is non-refundable.</P>
           </Section>
 
           <Section title="6. After handoff: support and updates">
             <P>
-              Because your deployment runs on infrastructure you own, what happens after handoff is
-              stated here plainly: [pick one — a clean handoff with no retained access and any
-              future work as a new engagement; an included support window of a stated length; or an
-              ongoing retainer with its fee and scope stated].
+              For {SUPPORT_WINDOW_DAYS} days after handoff, we'll fix any setup issues and answer
+              questions at no extra charge, reachable at {contact}. After that window, further work
+              — updates, bug fixes, or changes — is a separate engagement you can request and pay
+              for individually. We do not retain ongoing access to your server beyond this window
+              unless you specifically ask us to, for a new engagement.
             </P>
           </Section>
 
@@ -139,8 +145,8 @@ function TermsPage() {
               operate, its ongoing availability after handoff depends on that infrastructure
               remaining operational — for example, your cloud provider account staying active and
               paid. We are not responsible for outages caused by your hosting provider, your own
-              infrastructure management, or third-party API outages for connected accounts after
-              handoff, except as covered under any support arrangement in Section 6.
+              infrastructure management, or third-party API outages for connected accounts, except
+              during the {SUPPORT_WINDOW_DAYS}-day support window described in Section 6.
             </P>
           </Section>
 
@@ -155,15 +161,12 @@ function TermsPage() {
           <Section title="11. Changes to these terms">
             <P>
               We'll notify you by email before any material change takes effect that affects an
-              active support/retainer arrangement under Section 6.
+              active support window under Section 6.
             </P>
           </Section>
 
           <Section title="12. Governing law">
-            <P>
-              These terms are governed by the laws of [India / your state], and any dispute will be
-              handled in the courts of [your city].
-            </P>
+            <P>These terms are governed by the laws of India.</P>
           </Section>
 
           <Section title="13. Contact">
