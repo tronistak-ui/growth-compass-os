@@ -60,6 +60,9 @@ function CustomersPage() {
     value: String(s["id"]),
     label: String(s["name"]),
   }));
+  const segmentNameById = new Map(segmentOptions.map((s) => [s.value, s.label]));
+  const customSegmentName = (row: Row) =>
+    segmentNameById.get(String(row["segment_id"] ?? "")) ?? "";
 
   // Per-customer spend + purchase count from revenue.
   const spend = new Map<string, { total: number; count: number; last: string | null }>();
@@ -161,6 +164,7 @@ function CustomersPage() {
                   type: "select" as const,
                   options: segmentOptions,
                   inTable: false,
+                  csvValue: customSegmentName,
                 },
               ]
             : []),

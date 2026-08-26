@@ -70,6 +70,10 @@ function LeadsPage() {
     value: String(o["id"]),
     label: String(o["name"]),
   }));
+  const campaignNameById = new Map(campaignOptions.map((c) => [c.value, c.label]));
+  const offerNameById = new Map(offerOptions.map((o) => [o.value, o.label]));
+  const leadCampaignName = (row: Row) => campaignNameById.get(String(row["campaign_id"] ?? "")) ?? "";
+  const leadOfferName = (row: Row) => offerNameById.get(String(row["offer_id"] ?? "")) ?? "";
 
   const fields = [
     { name: "name", label: "Name", required: true },
@@ -100,6 +104,7 @@ function LeadsPage() {
             type: "select" as const,
             options: campaignOptions,
             inTable: false,
+            csvValue: leadCampaignName,
           },
         ]
       : []),
@@ -111,6 +116,7 @@ function LeadsPage() {
             type: "select" as const,
             options: offerOptions,
             inTable: false,
+            csvValue: leadOfferName,
           },
         ]
       : []),
