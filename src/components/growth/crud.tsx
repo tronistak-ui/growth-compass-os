@@ -173,6 +173,14 @@ export function CrudPanel({
         .split(";")
         .map((s) => s.trim())
         .filter(Boolean);
+    // A select field with a `csvValue` (e.g. customer_id) exports the
+    // option's label, not its stored value — match back to the option so
+    // re-importing an exported file round-trips instead of saving the
+    // label text into a foreign-key column.
+    if (field.type === "select" && field.options) {
+      const match = field.options.find((o) => o.value === raw || o.label === raw);
+      if (match) return match.value;
+    }
     return raw;
   }
 
