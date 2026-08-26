@@ -1,8 +1,12 @@
-import { createServerFn } from "@tanstack/react-start";
+import { createServerFn, createServerOnlyFn } from "@tanstack/react-start";
 import { getRequestHeader, setCookie, deleteCookie } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { hashPassword, verifyPassword } from "../auth/password.server";
-import { SESSION_COOKIE_NAME, SESSION_TTL_MS, signSessionCookie } from "../auth/session-cookie.server";
+import {
+  SESSION_COOKIE_NAME,
+  SESSION_TTL_MS,
+  signSessionCookie,
+} from "../auth/session-cookie.server";
 import { createSession, deleteSession } from "../db-helpers/sessions.server";
 import { createUser, findUserByEmail } from "../db-helpers/users.server";
 import { getSessionUser, requireAuth } from "../auth/middleware";
@@ -14,7 +18,12 @@ import { userRoles } from "@/db/schema";
 import { verifySessionCookie } from "../auth/session-cookie.server";
 import { getCookie } from "@tanstack/react-start/server";
 
-export function setSessionCookie(sessionId: string) {
+// createServerOnlyFn (not a plain function) keeps this out of the client
+// bundle — a plain export here pulls session-cookie.server's signing key
+// into client code wherever a route imports this module, which fails a
+// production build outright (import-protection catches it at build time,
+// not just as a runtime risk).
+export const setSessionCookie = createServerOnlyFn((sessionId: string) => {
   setCookie(SESSION_COOKIE_NAME, signSessionCookie(sessionId), {
     httpOnly: true,
     sameSite: "lax",
@@ -22,7 +31,7 @@ export function setSessionCookie(sessionId: string) {
     secure: process.env["NODE_ENV"] === "production",
     maxAge: SESSION_TTL_MS / 1000,
   });
-}
+});
 
 function userToWire(user: {
   id: string;

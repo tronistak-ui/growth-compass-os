@@ -4,14 +4,6 @@ import tailwindcss from "@tailwindcss/vite";
 import tsConfigPaths from "vite-tsconfig-paths";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 
-// Deployment target for the Nitro server build. Nitro reads this from the
-// NITRO_PRESET env var if it's set (see package.json "build" script); this
-// is just the fallback when building without that env var, e.g. `vite build`
-// run directly or from an editor task.
-if (!process.env.NITRO_PRESET) {
-  process.env.NITRO_PRESET = "node-server";
-}
-
 export default defineConfig(({ mode }) => {
   // Every deployment of this app is white-labeled to one client — same
   // codebase, no per-client fork. BRAND_NAME/BRAND_TAGLINE get baked into
