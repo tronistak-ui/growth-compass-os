@@ -3,18 +3,20 @@ import { AppShell } from "@/components/growth/shell";
 import { CrudPanel } from "@/components/growth/crud";
 import { Panel, StatCard, Meter } from "@/components/growth/ui";
 import { useActiveOrg, useRows } from "@/lib/growth";
+import { useOrgData } from "@/lib/use-org-data";
 import { pct } from "@/lib/metrics";
 import { lexicon } from "@/lib/niches";
+import { BRAND_FULL } from "@/lib/brand";
 
 export const Route = createFileRoute("/_authenticated/conversion")({
   head: () => ({
     meta: [
-      { title: "Conversion — TrendZypher Growth OS" },
+      { title: `Conversion — ${BRAND_FULL}` },
       {
         name: "description",
         content: "Turn attention into enquiries and enquiries into paying customers.",
       },
-      { property: "og:title", content: "Conversion — TrendZypher Growth OS" },
+      { property: "og:title", content: `Conversion — ${BRAND_FULL}` },
       {
         property: "og:description",
         content: "Audit your conversion assets and track the funnel month by month.",
@@ -29,6 +31,7 @@ export const Route = createFileRoute("/_authenticated/conversion")({
 function ConversionPage() {
   const { org, orgId } = useActiveOrg();
   const lex = lexicon(org?.["niche"]);
+  const d = useOrgData();
   const { data: snapshots } = useRows("funnel_snapshots", orgId, {
     order: { column: "period_month" },
   });
@@ -36,18 +39,22 @@ function ConversionPage() {
     order: { column: "created_at" },
   });
 
+  // Leads, qualified and customers are computed live from the CRM — always
+  // current, no monthly data entry required. Visitors has no other source
+  // of truth in the app yet, so it still comes from the latest manually
+  // recorded funnel_snapshots row.
   const latest = (snapshots ?? [])[0];
   const visitors = Number(latest?.["visitors"] ?? 0);
-  const leads = Number(latest?.["leads"] ?? 0);
-  const qualified = Number(latest?.["qualified_leads"] ?? 0);
-  const customers = Number(latest?.["customers"] ?? 0);
+  const leads = d.metrics.totalLeads;
+  const qualified = d.metrics.qualifiedLeads;
+  const customers = d.metrics.wonLeads;
   const rate = (a: number, b: number) => (b > 0 ? (a / b) * 100 : 0);
   const assetRows = assets ?? [];
 
   return (
     <AppShell title="Conversion" subtitle="Where interested people stop becoming customers">
       <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Visitors (latest)" value={visitors} />
+        <StatCard label="Visitors (latest)" value={visitors} hint="Manually tracked" />
         <StatCard label={lex.leads} value={leads} hint={pct(rate(leads, visitors))} />
         <StatCard label="Qualified" value={qualified} hint={pct(rate(qualified, leads))} />
         <StatCard
@@ -59,7 +66,7 @@ function ConversionPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <Panel title="Funnel health" description="Latest recorded month">
+        <Panel title="Funnel health" description="Live from your CRM — always current">
           <div className="space-y-3">
             <Meter
               label={`Visitor → ${lex.lead.toLowerCase()}`}
@@ -123,10 +130,10 @@ function ConversionPage() {
           <CrudPanel
             table="funnel_snapshots"
             orgId={orgId}
-            title="Monthly funnel"
-            description="Record the numbers each month to see the trend"
+            title="Visitors by month"
+            description={`Leads, qualified and ${lex.customers.toLowerCase()} above are live — visitors is the only number you need to enter`}
             emptyTitle="No months recorded"
-            emptyDescription="Add this month's visitors, enquiries and customers."
+            emptyDescription="Add this month's visitor count from your site or page analytics."
             queryOpts={{ order: { column: "period_month" } }}
             fields={[
               { name: "period_month", label: "Month", type: "date", required: true },

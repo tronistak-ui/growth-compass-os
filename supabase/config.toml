@@ -1,1 +1,12 @@
-project_id = "sonizroaoqjpmyrqzvsf"
+project_id = "enrvkqbjutqdnxxwrlsf"
+
+# oauth-callback is hit by a raw top-level browser redirect from the OAuth
+# provider (Google now, Meta later) — there is no way for that navigation to
+# carry an Authorization header, so the platform's default JWT gate must be
+# off for this one function. All trust instead comes from verifying the
+# HMAC-signed `state` param inside the function itself (see
+# supabase/functions/_shared/oauth-state.ts). Every other function keeps the
+# default (verify_jwt = true) since they're all called via
+# supabase.functions.invoke() with a real bearer token.
+[functions.oauth-callback]
+verify_jwt = false

@@ -16,8 +16,15 @@
 // trigger) rather than trusting an unauthenticated request.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { handleCors, withCors } from "../_shared/cors.ts";
 
 Deno.serve(async (req: Request) => {
+  const preflight = handleCors(req);
+  if (preflight) return preflight;
+  return withCors(await handleSystemHealthAlert(req));
+});
+
+async function handleSystemHealthAlert(req: Request): Promise<Response> {
   if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
   }
@@ -130,4 +137,4 @@ Deno.serve(async (req: Request) => {
     status: 200,
     headers: { "Content-Type": "application/json" },
   });
-});
+}

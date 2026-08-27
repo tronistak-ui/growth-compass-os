@@ -1,0 +1,219 @@
+# Deploy runbook
+
+How to stand up one client's dedicated instance from scratch (Oracle Cloud VM
+or any similar Ubuntu box you control) and how to update one later. Every
+client gets their own VM + their own Postgres — this is not a shared/multi-VM
+setup.
+
+## 1. Prerequisites on the VM
+
+- Ubuntu 22.04+ (or similar), with a non-root sudo user
+- Node.js 22+ (`node --version` — this app is built and tested on Node 24)
+- Postgres 16 (either installed directly on the VM, or run via the included
+  `docker-compose.yml` — either is fine, this app only needs a reachable
+  `DATABASE_URL`)
+- Nginx (or another reverse proxy) for TLS termination — this app's own
+  server (`scripts/serve.mjs`) speaks plain HTTP only, on purpose; it expects
+  to sit behind a proxy that handles HTTPS, same as most Node deployments
+- A domain name pointed at the VM, with a valid TLS cert (`certbot` +
+  Let's Encrypt is the standard free option)
+
+## 2. Get the code and configure it
+
+```bash
+git clone <your-repo-url> growth-compass
+cd growth-compass
+npm ci
+cp .env.example .env   # or hand-write one — see the table below
+```
+
+There is no `.env.example` committed yet — `.env` is gitignored on purpose
+(it holds real secrets). Copy the variable names from the reference table
+below, or from the comments already in a working `.env` from another
+deployment, and fill in fresh values for this client.
+
+### Environment variables
+
+Every secret below needs a **fresh, unique value per client deployment** —
+never copy one client's `.env` secrets to another's. Generate each with:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
+```
+
+| Variable | Required | Notes |
+|---|---|---|
+| `BRAND_NAME`, `BRAND_TAGLINE` | Yes | Baked into the build at compile time — see white-label notes below |
+| `SUPPORT_EMAIL` | No | Leave empty to hide the "Contact support" link entirely |
+| `DATABASE_URL` | Yes | `postgres://user:pass@host:5432/dbname` |
+| `SESSION_SECRET` | Yes | 32 random bytes, base64url |
+| `PLATFORM_ADMIN_CLAIM_SECRET` | Yes | Set before first deploy, claim admin immediately after, then treat as compromised (see step 5) |
+| `APP_BASE_URL` | Yes | The real public URL, e.g. `https://client.example.com` — used to build OAuth redirect URLs and links in emails |
+| `OAUTH_STATE_SECRET` | Yes | 32 random bytes, base64url |
+| `TOKEN_ENCRYPTION_KEY` | Yes | 32 random bytes, **base64** (not base64url) — encrypts stored OAuth tokens at rest |
+| `GOOGLE_CLIENT_ID`/`SECRET`/`OAUTH_REDIRECT_URL` | No | Leave blank to disable Google Business Profile connect |
+| `INSTAGRAM_APP_ID`/`SECRET`/`OAUTH_REDIRECT_URL`/`WEBHOOK_VERIFY_TOKEN` | No | Leave blank to disable Instagram connect |
+| `SMTP_HOST`, `SMTP_PORT` | Yes | Real provider (SendGrid, SES, Mailgun, etc.), not Mailpit |
+| `SMTP_USER`, `SMTP_PASS` | Yes (for a real provider) | Every real provider requires these; only Mailpit (dev-only) doesn't |
+| `SMTP_SECURE` | Yes | `"true"` for port 465, `"false"` for port 587 (STARTTLS) — check your provider's docs |
+| `ALERT_FROM_EMAIL` | Yes | The From address for verification/invite/digest emails |
+| `STORAGE_LOCAL_ROOT`, `STORAGE_BASE_URL` | Yes | Local-disk file storage — fine for a single-VM deployment |
+
+### White-labeling this client
+
+Before building: set `BRAND_NAME`/`BRAND_TAGLINE` in `.env`, and replace
+`public/brand-mark.png` (and the favicon files in `public/`) with the
+client's logo. These are compiled into the client bundle — changing them
+requires a rebuild, not just an env var change at runtime.
+
+## 3. Database setup
+
+```bash
+npm run db:migrate
+```
+
+This runs every migration in `drizzle/migrations/` against `DATABASE_URL`.
+Safe to re-run — already-applied migrations are skipped.
+
+## 4. Build and run
+
+```bash
+npm run build   # outputs dist/client (static assets) + dist/server/server.js (SSR handler)
+npm start        # runs scripts/serve.mjs — a plain Node HTTP server on $PORT (default 3000)
+```
+
+`npm start` reads `PORT` and `HOST` from the environment (defaults `3000` /
+`0.0.0.0`) and reads everything else from `.env` if you launch it with
+`node --env-file=.env scripts/serve.mjs` (or export the variables another
+way — e.g. a systemd `EnvironmentFile`).
+
+**Why a custom `scripts/serve.mjs` instead of a framework-provided server:**
+this project's exact TanStack Start + Nitro version combination does not
+produce a self-running server from `vite build` alone (`dist/server/server.js`
+is just a Web-standard `{ fetch(request) }` handler, nothing opens a port).
+The framework's own fix for that, `@tanstack/nitro-v2-vite-plugin`, was
+tried and produces a real entry point, but the available beta version has a
+bug (`TypeError: Invalid URL`, traced to its bundled `srvx` request adapter
+failing to build an absolute URL from a raw Node request — a matching issue
+is filed upstream) that makes every real request 500. `scripts/serve.mjs` is
+a small, deliberately boring Node `http` server that wraps the same
+`{ fetch }` handler directly, serves `dist/client` as static files, and has
+no dependency on that adapter working. If a future upgrade fixes the
+upstream bug, this file can be retired in favor of the framework's own
+preset — until then, this is the supported way to run the app.
+
+Run it under a process manager so it restarts on crash/reboot. Simplest is
+systemd:
+
+```ini
+# /etc/systemd/system/growth-compass.service
+[Unit]
+Description=Growth Compass
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=growthcompass
+WorkingDirectory=/home/growthcompass/growth-compass
+EnvironmentFile=/home/growthcompass/growth-compass/.env
+Environment=NODE_ENV=production
+Environment=PORT=3000
+ExecStart=/usr/bin/node scripts/serve.mjs
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now growth-compass
+sudo systemctl status growth-compass
+```
+
+## 5. Reverse proxy + TLS
+
+Point Nginx at the app and let it handle HTTPS:
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name client.example.com;
+
+    ssl_certificate     /etc/letsencrypt/live/client.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/client.example.com/privkey.pem;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+server {
+    listen 80;
+    server_name client.example.com;
+    return 301 https://$host$request_uri;
+}
+```
+
+`certbot --nginx` will provision and auto-renew the certificate.
+
+## 6. First-run: claim platform admin
+
+1. Sign up for the very first account through the running app (this becomes
+   the client's `business_owner`).
+2. Go to `/admin`, paste in the `PLATFORM_ADMIN_CLAIM_SECRET` from `.env`,
+   click "Claim platform admin". This only works once — the first successful
+   claim locks it for good.
+3. Immediately after, treat `PLATFORM_ADMIN_CLAIM_SECRET` as compromised —
+   it has no further use once an admin exists, so there's no need to rotate
+   it, just don't rely on it for anything again.
+
+## 7. Verify the deployment
+
+- Load the public URL — sign-in page renders, correct branding/logo.
+- Sign up a test account, confirm the verification email actually arrives
+  (real inbox, not Mailpit) — this is the one thing that silently breaks if
+  `SMTP_USER`/`SMTP_PASS`/`SMTP_SECURE` are wrong.
+- Sign in, confirm the dashboard loads with real (empty) data.
+- Check `sudo systemctl status growth-compass` and `journalctl -u
+  growth-compass -f` for errors under real traffic.
+- Load `/legal/terms` and `/legal/privacy` — before the first real client,
+  update the "Last updated" date in both (`src/routes/legal/terms.tsx` and
+  `privacy.tsx`) and confirm the terms (fee, refund policy, support window)
+  are what you actually intend to honor for this client.
+
+## 8. Updating an existing deployment
+
+```bash
+cd growth-compass
+git pull
+npm ci
+npm run db:migrate
+npm run build
+sudo systemctl restart growth-compass
+```
+
+## 9. Backups
+
+Postgres is the only stateful piece (file storage is local disk under
+`STORAGE_LOCAL_ROOT` — back that up too if clients upload files).
+
+```bash
+pg_dump "$DATABASE_URL" > backup-$(date +%F).sql
+```
+
+Automate this on a cron job pointed at off-VM storage — a single-VM setup
+has no redundancy otherwise.
+
+## Known non-blocking issue
+
+A React hydration console warning (`Minified React error #418`) can appear
+on first paint in production. It's a harmless, self-correcting mismatch
+(React silently regenerates the client tree) — every actual code path
+(sign-in/out, session cookies, database reads and writes, static assets) has
+been verified working end-to-end despite it. Worth revisiting if a future
+TanStack Start/React upgrade resolves it, but it is not a launch blocker.

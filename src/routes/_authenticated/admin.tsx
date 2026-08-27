@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AppShell } from "@/components/growth/shell";
-import { Panel, StatCard, Meter } from "@/components/growth/ui";
+import { Panel, StageTracker } from "@/components/growth/ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,7 +14,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import {
+  listAllOrganizations,
+  setOnboardingStage,
+  saveOrgNotes,
+  regenerateActivationCode,
+} from "@/server/functions/organizations";
+import { getOrgActivity, getSystemHealthCheck, claimPlatformAdmin } from "@/server/functions/admin";
 import { useIsAdmin, useHasRole, setStoredOrgId } from "@/lib/growth";
 import { money } from "@/lib/metrics";
 import { ONBOARDING_STAGES, stageLabel } from "@/lib/niches";
@@ -28,14 +34,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useQueryClient } from "@tanstack/react-query";
+import { BRAND_FULL } from "@/lib/brand";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({
     meta: [
-      { title: "Admin — TrendZypher Growth OS" },
-      { name: "description", content: "Platform overview of businesses using the Growth OS." },
-      { property: "og:title", content: "Admin — TrendZypher Growth OS" },
-      { property: "og:description", content: "Platform overview of businesses and members." },
+      { title: `Admin — ${BRAND_FULL}` },
+      { name: "description", content: "Support access, system health and this account's setup." },
+      { property: "og:title", content: `Admin — ${BRAND_FULL}` },
+      {
+        property: "og:description",
+        content: "Support access, system health and this account's setup.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -52,56 +62,32 @@ type OrgRow = {
   onboarding_status: string | null;
   onboarding_completed: boolean | null;
   internal_notes: string | null;
+  activated_at: string | null;
 };
 
 function AdminPage() {
   const { data: isAdmin, isLoading: roleLoading } = useIsAdmin();
   const { data: canView, isLoading: viewRoleLoading } = useHasRole("platform_admin", "support");
   const navigate = useNavigate();
-  const [q, setQ] = useState("");
   const [notesFor, setNotesFor] = useState<OrgRow | null>(null);
   const [notesDraft, setNotesDraft] = useState("");
   const [savingNotes, setSavingNotes] = useState(false);
+  const [claimSecret, setClaimSecret] = useState("");
+  const [regenCode, setRegenCode] = useState<string | null>(null);
   const qc = useQueryClient();
 
   const orgs = useQuery({
     queryKey: ["admin", "organizations"],
     enabled: !!canView,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("organizations")
-        .select(
-          "id,name,niche,currency,created_at,onboarding_status,onboarding_completed,internal_notes",
-        )
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as OrgRow[];
-    },
+    queryFn: () => listAllOrganizations() as Promise<OrgRow[]>,
   });
 
   const activity = useQuery({
     queryKey: ["admin", "activity"],
     enabled: !!canView,
     queryFn: async () => {
-      const [leads, customers, revenue] = await Promise.all([
-        supabase.from("leads").select("organization_id,status"),
-        supabase.from("customers").select("organization_id"),
-        supabase.from("revenue_transactions").select("organization_id,amount"),
-      ]);
-      if (leads.error) throw leads.error;
-      if (customers.error) throw customers.error;
-      if (revenue.error) throw revenue.error;
-      const map = new Map<string, { leads: number; customers: number; revenue: number }>();
-      const get = (id: string) => {
-        const cur = map.get(id) ?? { leads: 0, customers: 0, revenue: 0 };
-        map.set(id, cur);
-        return cur;
-      };
-      for (const l of leads.data ?? []) get(String(l.organization_id)).leads += 1;
-      for (const c of customers.data ?? []) get(String(c.organization_id)).customers += 1;
-      for (const r of revenue.data ?? [])
-        get(String(r.organization_id)).revenue += Number(r.amount ?? 0);
-      return map;
+      const byOrg = await getOrgActivity();
+      return new Map(Object.entries(byOrg));
     },
   });
 
@@ -109,51 +95,40 @@ function AdminPage() {
     queryKey: ["admin", "health"],
     enabled: !!canView,
     refetchInterval: 60_000,
-    queryFn: async () => {
-      const started = performance.now();
-      const [orgPing, tasks, opps] = await Promise.all([
-        supabase.from("organizations").select("id", { count: "exact", head: true }),
-        supabase.from("tasks").select("status"),
-        supabase.from("growth_opportunities").select("status,source"),
-      ]);
-      const latency = Math.round(performance.now() - started);
-      const errors = [orgPing.error, tasks.error, opps.error].filter(Boolean);
-      return {
-        latency,
-        databaseOk: errors.length === 0,
-        errorMessage: errors[0]?.message ?? null,
-        openTasks: (tasks.data ?? []).filter((t) => t.status !== "done").length,
-        autoOpportunities: (opps.data ?? []).filter((o: any) => o.source === "auto").length,
-        openOpportunities: (opps.data ?? []).filter((o: any) => o.status !== "done").length,
-      };
-    },
+    queryFn: () => getSystemHealthCheck(),
   });
 
   async function claimAdmin() {
-    const { data, error } = await (supabase.rpc as any)("claim_platform_admin");
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-    if (data) {
-      toast.success("Platform admin access granted");
-      void qc.invalidateQueries();
-    } else {
-      toast.error("An admin already exists for this platform");
+    try {
+      const granted = await claimPlatformAdmin({ data: { secret: claimSecret } });
+      if (granted) {
+        toast.success("Platform admin access granted");
+        void qc.invalidateQueries();
+      } else {
+        toast.error("An admin already exists for this platform");
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not claim admin access");
     }
   }
 
   async function setStage(id: string, stage: string) {
-    const { error } = await supabase
-      .from("organizations")
-      .update({ onboarding_status: stage, onboarding_completed: stage === "completed" })
-      .eq("id", id);
-    if (error) {
-      toast.error(error.message);
-      return;
+    try {
+      await setOnboardingStage({ data: { id, stage } });
+      toast.success(`Moved to ${stageLabel(stage)}`);
+      void qc.invalidateQueries({ queryKey: ["admin", "organizations"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not save");
     }
-    toast.success(`Moved to ${stageLabel(stage)}`);
-    void qc.invalidateQueries({ queryKey: ["admin", "organizations"] });
+  }
+
+  async function regenerateCode(id: string) {
+    try {
+      const { activation_code } = await regenerateActivationCode({ data: { orgId: id } });
+      setRegenCode(activation_code);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not generate a new code");
+    }
   }
 
   if (!roleLoading && !viewRoleLoading && !canView) {
@@ -161,21 +136,32 @@ function AdminPage() {
       <AppShell title="Admin">
         <Panel title="Not authorised">
           <p className="text-sm text-muted-foreground">You do not have access to the admin area.</p>
-          <Button className="mt-4" variant="outline" onClick={claimAdmin}>
-            Claim platform admin
-          </Button>
+          <div className="mt-4 max-w-xs space-y-2">
+            <Input
+              type="password"
+              value={claimSecret}
+              onChange={(e) => setClaimSecret(e.target.value)}
+              placeholder="Admin claim secret"
+              autoComplete="off"
+            />
+            <Button variant="outline" onClick={claimAdmin} disabled={!claimSecret}>
+              Claim platform admin
+            </Button>
+          </div>
           <p className="mt-2 text-xs text-muted-foreground">
-            Only available while no platform admin exists yet.
+            Only works once, while no platform admin exists yet, and only with the correct secret
+            (PLATFORM_ADMIN_CLAIM_SECRET on the server).
           </p>
         </Panel>
       </AppShell>
     );
   }
 
-  const all = orgs.data ?? [];
-  const rows = q
-    ? all.filter((r) => `${r.name} ${r.niche ?? ""}`.toLowerCase().includes(q.trim().toLowerCase()))
-    : all;
+  const rows = orgs.data ?? [];
+  // This deployment belongs to exactly one client, so there's exactly one
+  // row here in practice — kept as an array (rather than assuming rows[0])
+  // because nothing below breaks if that ever isn't true, e.g. mid-onboarding.
+  const business = rows[0] ?? null;
   const stats = activity.data;
 
   function growthScore(id: string) {
@@ -201,64 +187,21 @@ function AdminPage() {
   async function saveNotes() {
     if (!notesFor) return;
     setSavingNotes(true);
-    const { error } = await supabase
-      .from("organizations")
-      .update({ internal_notes: notesDraft.trim() || null })
-      .eq("id", notesFor.id);
-    setSavingNotes(false);
-    if (error) {
-      toast.error(error.message);
-      return;
+    try {
+      await saveOrgNotes({ data: { id: notesFor.id, notes: notesDraft.trim() || null } });
+      toast.success("Notes saved");
+      setNotesFor(null);
+      void qc.invalidateQueries({ queryKey: ["admin", "organizations"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not save");
+    } finally {
+      setSavingNotes(false);
     }
-    toast.success("Notes saved");
-    setNotesFor(null);
-    void qc.invalidateQueries({ queryKey: ["admin", "organizations"] });
   }
 
-  const totalRevenueTracked = [...(stats?.values() ?? [])].reduce((sum, a) => sum + a.revenue, 0);
-
   return (
-    <AppShell
-      title="Admin"
-      subtitle="Platform overview"
-      actions={
-        <Input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search businesses"
-          className="h-9 w-48"
-        />
-      }
-    >
-      <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <StatCard label="Businesses" value={all.length} />
-        <StatCard
-          label="Onboarded"
-          value={all.filter((r) => r.onboarding_completed).length}
-          tone="positive"
-        />
-        <StatCard
-          label="Industries"
-          value={new Set(all.map((r) => r.niche).filter(Boolean)).size}
-        />
-        <StatCard
-          label="Added this month"
-          value={
-            all.filter(
-              (r) =>
-                new Date(r.created_at).getMonth() === new Date().getMonth() &&
-                new Date(r.created_at).getFullYear() === new Date().getFullYear(),
-            ).length
-          }
-        />
-        <StatCard
-          label="Revenue tracked"
-          value={totalRevenueTracked.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-          hint="across all clients, mixed currencies"
-        />
-      </div>
-
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+    <AppShell title="Admin" subtitle="Support access, system health and this account's setup">
+      <div className="grid gap-4 lg:grid-cols-2">
         <Panel title="System health" description="Live backend checks, refreshed every minute">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-lg border border-border bg-surface-2 px-3 py-2.5">
@@ -311,14 +254,8 @@ function AdminPage() {
           </div>
         </Panel>
 
-        <Panel title="Onboarding pipeline" description="How clients are distributed across stages">
-          <div className="space-y-3">
-            {ONBOARDING_STAGES.map((s) => {
-              const count = all.filter((r) => (r.onboarding_status ?? "not_started") === s).length;
-              const value = all.length ? Math.round((count / all.length) * 100) : 0;
-              return <Meter key={s} label={`${stageLabel(s)} · ${count}`} value={value} />;
-            })}
-          </div>
+        <Panel title="Onboarding journey" description="Where this business is in the rollout">
+          <StageTracker stage={business?.onboarding_status ?? "not_started"} />
         </Panel>
       </div>
 
@@ -327,7 +264,7 @@ function AdminPage() {
         {isAdmin && <TeamRolesPanel />}
       </div>
 
-      <Panel className="mt-4" title="Businesses" description="All organisations on the platform">
+      <Panel className="mt-4" title="Business" description="This account's details and activity">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -335,6 +272,7 @@ function AdminPage() {
                 <th className="py-2">Name</th>
                 <th className="py-2">Industry</th>
                 <th className="py-2">Setup</th>
+                <th className="py-2">Activation</th>
                 <th className="py-2">Leads</th>
                 <th className="py-2">Customers</th>
                 <th className="py-2">Revenue</th>
@@ -367,6 +305,27 @@ function AdminPage() {
                           ))}
                         </SelectContent>
                       </Select>
+                    </td>
+                    <td className="py-2">
+                      {r.activated_at ? (
+                        <span className="rounded-full bg-success/10 px-2 py-0.5 text-xs font-medium text-success">
+                          Unlocked
+                        </span>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <span className="rounded-full bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning">
+                            Frozen
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-1.5 text-[11px] text-muted-foreground hover:text-primary"
+                            onClick={() => void regenerateCode(r.id)}
+                          >
+                            New code
+                          </Button>
+                        </div>
+                      )}
                     </td>
                     <td className="num py-2">{a?.leads ?? 0}</td>
                     <td className="num py-2">{a?.customers ?? 0}</td>
@@ -403,8 +362,8 @@ function AdminPage() {
               })}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="py-6 text-center text-muted-foreground">
-                    No businesses yet.
+                  <td colSpan={10} className="py-6 text-center text-muted-foreground">
+                    No business set up yet.
                   </td>
                 </tr>
               )}
@@ -431,6 +390,26 @@ function AdminPage() {
             <Button disabled={savingNotes} onClick={() => void saveNotes()}>
               Save notes
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!regenCode} onOpenChange={(open) => !open && setRegenCode(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>New activation code</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            The previous code no longer works. This one is shown once — hand it to the client only
+            once the remaining setup fee is paid.
+          </p>
+          <div className="rounded-lg border border-border bg-surface-2 px-4 py-3 text-center">
+            <div className="font-display text-2xl font-semibold tracking-wider text-ink">
+              {regenCode}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setRegenCode(null)}>Done</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

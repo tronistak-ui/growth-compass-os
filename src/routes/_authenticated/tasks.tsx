@@ -3,17 +3,19 @@ import { AppShell } from "@/components/growth/shell";
 import { CrudPanel } from "@/components/growth/crud";
 import { StatCard } from "@/components/growth/ui";
 import { useActiveOrg, useRows } from "@/lib/growth";
+import { todayInBusinessTimezone } from "@/lib/date";
+import { BRAND_FULL } from "@/lib/brand";
 
 export const Route = createFileRoute("/_authenticated/tasks")({
   head: () => ({
     meta: [
-      { title: "Action plan & tasks — TrendZypher Growth OS" },
+      { title: `Action plan & tasks — ${BRAND_FULL}` },
       {
         name: "description",
         content:
           "Turn growth insights into a weekly action plan with owners, priorities and due dates.",
       },
-      { property: "og:title", content: "Action plan & tasks — TrendZypher Growth OS" },
+      { property: "og:title", content: `Action plan & tasks — ${BRAND_FULL}` },
       {
         property: "og:description",
         content: "A single execution list across presence, reach, conversion and revenue.",
@@ -40,7 +42,7 @@ function TasksPage() {
   const { orgId } = useActiveOrg();
   const { data } = useRows("tasks", orgId, { order: { column: "due_date", ascending: true } });
   const rows = data ?? [];
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayInBusinessTimezone();
   const open = rows.filter((r) => r["status"] !== "done").length;
   const overdue = rows.filter(
     (r) => r["status"] !== "done" && r["due_date"] && String(r["due_date"]) < today,

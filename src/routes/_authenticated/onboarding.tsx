@@ -3,7 +3,8 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { getCurrentUser } from "@/server/functions/auth";
+import { createOrganization } from "@/server/functions/organizations";
 import { setStoredOrgId } from "@/lib/growth";
 import { NICHES, BUSINESS_GOALS, CHANNELS } from "@/lib/niches";
 import { Button } from "@/components/ui/button";
@@ -18,18 +19,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { BRAND_FULL, BRAND_TAGLINE } from "@/lib/brand";
 
 export const Route = createFileRoute("/_authenticated/onboarding")({
   head: () => ({
     meta: [
-      { title: "Business onboarding — TrendZypher Growth OS" },
+      { title: `Business onboarding — ${BRAND_FULL}` },
       {
         name: "description",
-        content:
-          "Tell the Growth OS about your business, model and goals to activate your workspace.",
+        content: `Tell the ${BRAND_TAGLINE} about your business, model and goals to activate your workspace.`,
       },
-      { property: "og:title", content: "Business onboarding — TrendZypher Growth OS" },
+      { property: "og:title", content: `Business onboarding — ${BRAND_FULL}` },
       { property: "og:description", content: "Set up your business profile, model and goals." },
     ],
   }),
@@ -43,6 +51,8 @@ function Onboarding() {
   const qc = useQueryClient();
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [activationCode, setActivationCode] = useState<string | null>(null);
+  const [pendingOrgId, setPendingOrgId] = useState<string | null>(null);
   const [form, setForm] = useState<Record<string, any>>({
     name: "",
     niche: "Local Brand",
@@ -83,75 +93,69 @@ function Onboarding() {
     setSaving(true);
 
     // Always read the identity fresh at submit time — a stale/expired session in
-    // component state is what makes the database reject the new business row.
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-    const currentUser = userData?.user ?? null;
-    if (userError || !currentUser) {
+    // component state is what makes the server reject the new business row.
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
       setSaving(false);
       toast.error("Your session expired. Please sign in again.");
       navigate({ to: "/auth" });
       return;
     }
 
-    const payload = {
-      name: String(form["name"]).trim(),
-      niche: form["niche"] || null,
-      industry: form["industry"] || null,
-      location: form["location"] || null,
-      website: form["website"] || null,
-      instagram: form["instagram"] || null,
-      facebook: form["facebook"] || null,
-      whatsapp: form["whatsapp"] || null,
-      google_profile: form["google_profile"] || null,
-      phone: form["phone"] || null,
-      email: form["email"] || null,
-      currency: form["currency"] || "USD",
-      products_services: form["products_services"] || null,
-      main_offers: form["main_offers"] || null,
-      avg_order_value: Number(form["avg_order_value"]) || 0,
-      target_location: form["target_location"] || null,
-      main_customer_type: form["main_customer_type"] || null,
-      monthly_revenue_range: form["monthly_revenue_range"] || null,
-      main_goal: form["main_goal"] || null,
-      goals: form["goals"] ?? [],
-      acquisition_channels: form["acquisition_channels"] ?? [],
-      owner_id: currentUser.id,
-      onboarding_status: "audit",
-    };
+    try {
+      const created = await createOrganization({
+        data: {
+          name: String(form["name"]).trim(),
+          niche: form["niche"] || undefined,
+          industry: form["industry"] || undefined,
+          location: form["location"] || undefined,
+          website: form["website"] || undefined,
+          instagram: form["instagram"] || undefined,
+          facebook: form["facebook"] || undefined,
+          whatsapp: form["whatsapp"] || undefined,
+          googleProfile: form["google_profile"] || undefined,
+          phone: form["phone"] || undefined,
+          email: form["email"] || undefined,
+          currency: form["currency"] || "USD",
+          productsServices: form["products_services"] || undefined,
+          mainOffers: form["main_offers"] || undefined,
+          avgOrderValue: Number(form["avg_order_value"]) || 0,
+          targetLocation: form["target_location"] || undefined,
+          mainCustomerType: form["main_customer_type"] || undefined,
+          monthlyRevenueRange: form["monthly_revenue_range"] || undefined,
+          mainGoal: form["main_goal"] || undefined,
+          goals: form["goals"] ?? [],
+          acquisitionChannels: form["acquisition_channels"] ?? [],
+        },
+      });
 
-    const { error } = await supabase.from("organizations").insert(payload as any);
-    if (error) {
+      setSaving(false);
+      if (created?.["id"]) setStoredOrgId(created["id"] as string);
+      await qc.invalidateQueries();
+      toast.success("Workspace ready");
+      // The activation code only ever appears in this one response — hold
+      // navigation until it's been shown and acknowledged, rather than
+      // risk it flashing past in a toast.
+      if (created?.["activation_code"]) {
+        setPendingOrgId(created["id"] as string);
+        setActivationCode(created["activation_code"] as string);
+      } else {
+        navigate({ to: "/dashboard" });
+      }
+    } catch (error) {
       setSaving(false);
       console.error("Create organization failed", error);
-      toast.error(
-        error.message.includes("row-level security")
-          ? "Couldn't create your business — please sign in again."
-          : error.message,
-      );
-      return;
+      toast.error(error instanceof Error ? error.message : "Couldn't create your business");
     }
-
-    // Read the new business back separately, once membership has been attached.
-    const { data: created } = await supabase
-      .from("organizations")
-      .select("id")
-      .eq("owner_id", currentUser.id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    setSaving(false);
-    if (created?.id) setStoredOrgId(created.id);
-    await qc.invalidateQueries();
-    toast.success("Workspace ready");
-    navigate({ to: "/dashboard" });
   }
 
   return (
     <div className="dotfield min-h-screen bg-background px-4 py-10">
       <div className="mx-auto w-full max-w-3xl">
         <div className="mb-6 text-center">
-          <h1 className="font-display text-2xl font-semibold text-ink">Set up your Growth OS</h1>
+          <h1 className="font-display text-2xl font-semibold text-ink">
+            Set up your {BRAND_TAGLINE}
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Three short steps. Everything can be edited later in Settings.
           </p>
@@ -362,6 +366,43 @@ function Onboarding() {
           </div>
         </div>
       </div>
+
+      <Dialog open={!!activationCode}>
+        <DialogContent
+          className="sm:max-w-md"
+          onInteractOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
+          <DialogHeader>
+            <DialogTitle>Save this activation code</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            The workspace is unlocked for you to configure now, but a client member will only get
+            full read/write access once this code is entered from the banner shown on their screen.
+            This code is shown once — it cannot be retrieved again (only regenerated from the admin
+            console, invalidating this one).
+          </p>
+          <div className="rounded-lg border border-border bg-surface-2 px-4 py-3 text-center">
+            <div className="font-display text-2xl font-semibold tracking-wider text-ink">
+              {activationCode}
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Hand this to the client only once the remaining setup fee is paid — not before.
+          </p>
+          <DialogFooter>
+            <Button
+              onClick={() => {
+                setActivationCode(null);
+                if (pendingOrgId) setStoredOrgId(pendingOrgId);
+                navigate({ to: "/dashboard" });
+              }}
+            >
+              I've saved it — continue
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

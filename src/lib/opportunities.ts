@@ -1,6 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { syncGrowthOpportunities } from "@/server/functions/opportunities";
 import type { Insight } from "./metrics";
 
 /**
@@ -14,49 +13,22 @@ export function useSyncInsights(orgId?: string) {
   return useMutation({
     mutationFn: async (insights: Insight[]) => {
       if (!orgId) throw new Error("No active business");
-
-      const rows = insights.map((i) => ({
-        organization_id: orgId,
-        insight_key: i.key,
-        source: "auto",
-        title: i.title,
-        lever: i.lever,
-        module: i.module,
-        impact: i.impact,
-        current_value: i.current,
-        target_value: i.target,
-        recommended_action: i.action,
-      }));
-
-      if (rows.length > 0) {
-        const { error } = await (supabase.from("growth_opportunities") as any).upsert(rows, {
-          onConflict: "organization_id,insight_key",
-          ignoreDuplicates: false,
-        });
-        if (error) throw error;
-      }
-
-      // New auto rows land on the DB default status; normalise them to the
-      // plan vocabulary without touching statuses the user has already moved.
-      const { error: statusError } = await (supabase.from("growth_opportunities") as any)
-        .update({ status: "identified" })
-        .eq("organization_id", orgId)
-        .eq("source", "auto")
-        .eq("status", "not_started");
-      if (statusError) throw statusError;
-
-      // Remove stale auto rows whose rule no longer applies.
-      const keep = insights.map((i) => i.key);
-      let del = (supabase.from("growth_opportunities") as any)
-        .delete()
-        .eq("organization_id", orgId)
-        .eq("source", "auto")
-        .neq("status", "done");
-      if (keep.length > 0) del = del.not("insight_key", "in", `(${keep.join(",")})`);
-      const { error: delError } = await del;
-      if (delError) throw delError;
-
-      return rows.length;
+      const result = await syncGrowthOpportunities({
+        data: {
+          orgId,
+          insights: insights.map((i) => ({
+            key: i.key,
+            title: i.title,
+            lever: i.lever,
+            module: i.module,
+            impact: i.impact,
+            current: i.current ?? null,
+            target: i.target ?? null,
+            action: i.action ?? null,
+          })),
+        },
+      });
+      return result.synced;
     },
     onSuccess: () => qc.invalidateQueries(),
   });

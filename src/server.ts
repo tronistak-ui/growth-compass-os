@@ -2,6 +2,11 @@ import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
+import { startCronJobs } from "./server/cron";
+
+// Runs once when this long-running Node process boots (see server/cron.ts
+// for why this replaces the old pg_cron + pg_net job).
+startCronJobs();
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;

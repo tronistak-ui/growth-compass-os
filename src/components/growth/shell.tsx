@@ -1,7 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
+import { toast } from "sonner";
+import { resendVerificationEmail } from "@/server/functions/email-verification";
+import { activateOrganization } from "@/server/functions/organizations";
 import {
   LayoutDashboard,
   Globe,
@@ -20,11 +23,28 @@ import {
   Menu,
   Building2,
   ShieldCheck,
+  Sun,
+  Moon,
+  Bell,
+  Search,
+  Zap,
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { useActiveOrg, useIsAdmin, useProfile, setStoredOrgId } from "@/lib/growth";
+import {
+  useActiveOrg,
+  useIsAdmin,
+  useHasRole,
+  useProfile,
+  setStoredOrgId,
+  signOut as signOutSession,
+} from "@/lib/growth";
+import { useNotifications, useMarkNotificationRead } from "@/lib/health";
+import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
+import { BRAND_NAME, BRAND_TAGLINE } from "@/lib/brand";
+import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
+import { GlobalSearch } from "./global-search";
+import { QuickAdd } from "./quick-add";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,6 +70,58 @@ const NAV = [
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 
+/**
+ * Shows whatever notifications belong to the current user — historically
+ * only system health alerts (platform_admin/support), now also the daily
+ * overdue-follow-up/task nudge every business owner gets.
+ */
+function NotificationsBell() {
+  const { data: notifications } = useNotifications();
+  const markRead = useMarkNotificationRead();
+  const unread = (notifications ?? []).filter((n) => !n.read_at);
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="relative">
+          <Bell className="size-4" />
+          {unread.length > 0 && (
+            <span className="absolute top-1 right-1 grid size-4 place-items-center rounded-full bg-destructive text-[10px] font-medium text-destructive-foreground">
+              {unread.length > 9 ? "9+" : unread.length}
+            </span>
+          )}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-80">
+        <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {!notifications || notifications.length === 0 ? (
+          <div className="px-2 py-6 text-center text-xs text-muted-foreground">All caught up</div>
+        ) : (
+          <div className="max-h-80 overflow-y-auto">
+            {notifications.map((n) => (
+              <DropdownMenuItem
+                key={n.id}
+                className={cn(
+                  "flex flex-col items-start gap-0.5 whitespace-normal",
+                  !n.read_at && "bg-primary/5",
+                )}
+                onClick={() => !n.read_at && markRead.mutate(n.id)}
+              >
+                <span className="text-xs font-medium text-ink">{n.title}</span>
+                {n.body && <span className="text-[11px] text-muted-foreground">{n.body}</span>}
+                <span className="text-[10px] text-muted-foreground/70">
+                  {formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}
+                </span>
+              </DropdownMenuItem>
+            ))}
+          </div>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 export function AppShell({
   title,
   subtitle,
@@ -65,35 +137,73 @@ export function AppShell({
   const { org, orgs } = useActiveOrg();
   const { data: profile } = useProfile();
   const { data: isAdmin } = useIsAdmin();
+  const { data: staffAccess } = useHasRole("platform_admin", "support");
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [activationCode, setActivationCode] = useState("");
 
   async function signOut() {
     await qc.cancelQueries();
     qc.clear();
-    await supabase.auth.signOut();
+    await signOutSession();
     navigate({ to: "/auth", replace: true });
+  }
+
+  const activate = useMutation({
+    mutationFn: () =>
+      activateOrganization({ data: { orgId: org?.["id"] as string, code: activationCode } }),
+    onSuccess: () => {
+      toast.success("Unlocked — full access enabled");
+      setActivationCode("");
+      void qc.invalidateQueries();
+    },
+    onError: (e: any) => toast.error(e.message ?? "Incorrect activation code"),
+  });
+
+  async function resendVerification() {
+    setResending(true);
+    try {
+      await resendVerificationEmail();
+      toast.success("Verification email sent — check your inbox");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not send verification email");
+    } finally {
+      setResending(false);
+    }
+  }
+
+  const billingStatus = org?.["billing_status"] as string | undefined;
+  const nextDue = org?.["next_payment_due_date"] as string | undefined;
+  const isFrozen = !!org && !org["activated_at"] && !staffAccess;
+  // Staff can always get in — a suspended client still needs to be reachable.
+  if (billingStatus === "suspended" && !staffAccess) {
+    return (
+      <SuspendedScreen orgName={String(org?.["name"] ?? "This business")} onSignOut={signOut} />
+    );
   }
 
   return (
     <div className="min-h-screen bg-background">
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex w-60 flex-col bg-sidebar text-sidebar-foreground transition-transform lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-40 flex w-60 flex-col bg-sidebar text-sidebar-foreground transition-transform lg:translate-x-0 print:hidden",
           open ? "translate-x-0" : "-translate-x-full",
         )}
       >
         <div className="flex h-16 items-center gap-2.5 border-b border-sidebar-border px-5">
-          <div className="grid size-8 place-items-center rounded-lg bg-sidebar-primary font-display text-sm font-bold text-sidebar-primary-foreground">
-            TZ
+          <div className="grid size-8 place-items-center rounded-lg bg-sidebar-primary shadow-[0_0_0_1px_var(--sidebar-border)]">
+            <img src="/brand-mark.png" alt="" className="size-5 object-contain" />
           </div>
           <div className="leading-tight">
             <div className="font-display text-sm font-semibold text-sidebar-accent-foreground">
-              TrendZypher
+              {BRAND_NAME}
             </div>
             <div className="text-[11px] tracking-wide text-sidebar-foreground/60 uppercase">
-              Growth OS
+              {BRAND_TAGLINE}
             </div>
           </div>
         </div>
@@ -107,23 +217,39 @@ export function AppShell({
                 to={item.to}
                 onClick={() => setOpen(false)}
                 className={cn(
-                  "flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors",
+                  "relative flex items-center gap-2.5 rounded-lg py-2 pr-3 pl-3.5 text-[13px] font-medium transition-colors",
                   active
                     ? "bg-sidebar-accent text-sidebar-accent-foreground"
                     : "text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
                 )}
               >
+                {active && (
+                  <span className="absolute top-1/2 left-0 h-4 w-[3px] -translate-y-1/2 rounded-full bg-sidebar-primary" />
+                )}
                 <item.icon className="size-4 shrink-0" />
                 {item.label}
               </Link>
             );
           })}
+          <Link
+            to="/rapid-entry"
+            onClick={() => setOpen(false)}
+            className={cn(
+              "mt-2 flex items-center gap-2.5 rounded-lg border border-sidebar-border px-3 py-2 text-[13px] font-medium transition-colors",
+              pathname === "/rapid-entry"
+                ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                : "text-sidebar-foreground/75 hover:bg-sidebar-accent/60",
+            )}
+          >
+            <Zap className="size-4" />
+            Rapid Entry
+          </Link>
           {isAdmin && (
             <Link
               to="/admin"
               onClick={() => setOpen(false)}
               className={cn(
-                "mt-2 flex items-center gap-2.5 rounded-lg border border-sidebar-border px-3 py-2 text-[13px] font-medium",
+                "mt-2 flex items-center gap-2.5 rounded-lg border border-sidebar-border px-3 py-2 text-[13px] font-medium transition-colors",
                 pathname === "/admin"
                   ? "bg-sidebar-accent text-sidebar-accent-foreground"
                   : "text-sidebar-foreground/75 hover:bg-sidebar-accent/60",
@@ -136,7 +262,7 @@ export function AppShell({
         </nav>
 
         <div className="border-t border-sidebar-border px-3 py-3 text-[11px] text-sidebar-foreground/50">
-          Growth OS · v1
+          {BRAND_TAGLINE} · v1
         </div>
       </aside>
 
@@ -144,8 +270,8 @@ export function AppShell({
         <div className="fixed inset-0 z-30 bg-black/40 lg:hidden" onClick={() => setOpen(false)} />
       )}
 
-      <div className="lg:pl-60">
-        <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-border bg-card/85 px-4 backdrop-blur-md sm:px-6">
+      <div className="lg:pl-60 print:pl-0">
+        <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-border bg-card/85 px-4 backdrop-blur-md sm:px-6 print:hidden">
           <Button
             variant="ghost"
             size="icon"
@@ -162,6 +288,39 @@ export function AppShell({
 
           <div className="flex items-center gap-2">
             {actions}
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="hidden gap-2 text-muted-foreground sm:flex"
+              onClick={() => setSearchOpen(true)}
+            >
+              <Search className="size-3.5" /> Search
+              <kbd className="rounded border border-border bg-surface-2 px-1.5 py-0.5 text-[10px]">
+                ⌘K
+              </kbd>
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="sm:hidden"
+              onClick={() => setSearchOpen(true)}
+              aria-label="Search"
+            >
+              <Search className="size-4" />
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleTheme}
+              aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            >
+              {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
+            </Button>
+
+            <NotificationsBell />
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-2">
@@ -193,7 +352,7 @@ export function AppShell({
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="grid size-9 place-items-center rounded-full bg-primary/10 font-display text-xs font-semibold text-primary">
+                <button className="grid size-9 place-items-center rounded-full bg-primary/10 font-display text-xs font-semibold text-primary ring-1 ring-primary/15 transition-shadow hover:ring-primary/30">
                   {(profile?.["full_name"] || profile?.["email"] || "U")
                     .toString()
                     .slice(0, 2)
@@ -216,7 +375,80 @@ export function AppShell({
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-[1400px] px-4 py-6 sm:px-6 sm:py-8">{children}</main>
+        <main className="mx-auto w-full max-w-[1400px] px-4 py-6 sm:px-6 sm:py-8">
+          {isFrozen && (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (activationCode.trim()) activate.mutate();
+              }}
+              className="mb-4 flex flex-wrap items-center gap-2.5 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-sm"
+            >
+              <span className="font-medium text-ink">
+                This account isn't activated yet — you can look around, but adding or changing
+                anything is locked until setup is fully paid for.
+              </span>
+              <div className="ml-auto flex items-center gap-2">
+                <input
+                  value={activationCode}
+                  onChange={(e) => setActivationCode(e.target.value)}
+                  placeholder="Activation code"
+                  className="h-8 w-40 rounded-md border border-border bg-background px-2.5 text-xs uppercase outline-none focus:border-primary"
+                />
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={activate.isPending || !activationCode.trim()}
+                >
+                  {activate.isPending ? "Checking…" : "Unlock"}
+                </Button>
+              </div>
+            </form>
+          )}
+          {billingStatus === "overdue" && !staffAccess && (
+            <div className="mb-4 rounded-lg border border-warning/30 bg-warning/10 px-4 py-2.5 text-sm text-warning">
+              Your payment is overdue
+              {nextDue ? ` (was due ${new Date(nextDue).toLocaleDateString()})` : ""} — please
+              settle it soon to avoid losing access.
+            </div>
+          )}
+          {profile && !profile["email_verified_at"] && (
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-info/30 bg-info/10 px-4 py-2.5 text-sm text-info">
+              <span>Verify your email ({profile["email"]}) to keep account recovery working.</span>
+              <button
+                type="button"
+                onClick={resendVerification}
+                disabled={resending}
+                className="font-medium underline underline-offset-2 hover:no-underline disabled:opacity-60"
+              >
+                {resending ? "Sending…" : "Resend link"}
+              </button>
+            </div>
+          )}
+          {children}
+        </main>
+      </div>
+
+      <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
+      <QuickAdd />
+    </div>
+  );
+}
+
+function SuspendedScreen({ orgName, onSignOut }: { orgName: string; onSignOut: () => void }) {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+      <div className="max-w-sm text-center">
+        <div className="mx-auto mb-4 grid size-12 place-items-center rounded-full bg-destructive/10 text-destructive">
+          <Building2 className="size-6" />
+        </div>
+        <h1 className="text-lg font-semibold text-ink">{orgName}'s access is on hold</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          This account is paused pending payment. Contact your account manager to restore access.
+        </p>
+        <Button variant="outline" className="mt-6" onClick={onSignOut}>
+          Sign out
+        </Button>
       </div>
     </div>
   );

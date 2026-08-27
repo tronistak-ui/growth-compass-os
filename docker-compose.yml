@@ -1,0 +1,32 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: growth_compass
+      POSTGRES_PASSWORD: growth_compass_dev
+      POSTGRES_DB: growth_compass
+    ports:
+      # Host port 5433 (not 5432) — avoids clashing with any other local
+      # Postgres instance already bound to the default port.
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U growth_compass -d growth_compass"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Local SMTP catcher for dev — system-health-alert emails land here instead
+  # of a real inbox. Web UI at http://localhost:8025, SMTP at localhost:1025.
+  # Free, open-source, no account — swap for a real provider at deploy time.
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+
+volumes:
+  postgres_data:

@@ -11,7 +11,11 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as AcceptInviteRouteImport } from './routes/accept-invite'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as VerifyEmailRouteImport } from './routes/verify-email'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedConversionRouteImport } from './routes/_authenticated/conversion'
 import { Route as AuthenticatedCustomersRouteImport } from './routes/_authenticated/customers'
@@ -23,10 +27,16 @@ import { Route as AuthenticatedLeadsRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated/onboarding'
 import { Route as AuthenticatedPositioningRouteImport } from './routes/_authenticated/positioning'
 import { Route as AuthenticatedPresenceRouteImport } from './routes/_authenticated/presence'
+import { Route as AuthenticatedRapidEntryRouteImport } from './routes/_authenticated/rapid-entry'
 import { Route as AuthenticatedReachRouteImport } from './routes/_authenticated/reach'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated/tasks'
+import { Route as LegalPrivacyRouteImport } from './routes/legal/privacy'
+import { Route as LegalTermsRouteImport } from './routes/legal/terms'
+import { Route as ApiInstagramWebhookRouteImport } from './routes/api/instagram/webhook'
+import { Route as ApiOauthCallbackRouteImport } from './routes/api/oauth/callback'
+import { Route as ApiStorageSplatRouteImport } from './routes/api/storage/$'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -37,9 +47,29 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AcceptInviteRoute = AcceptInviteRouteImport.update({
+  id: '/accept-invite',
+  path: '/accept-invite',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VerifyEmailRoute = VerifyEmailRouteImport.update({
+  id: '/verify-email',
+  path: '/verify-email',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
@@ -98,6 +128,11 @@ const AuthenticatedPresenceRoute = AuthenticatedPresenceRouteImport.update({
   path: '/presence',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedRapidEntryRoute = AuthenticatedRapidEntryRouteImport.update({
+  id: '/rapid-entry',
+  path: '/rapid-entry',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedReachRoute = AuthenticatedReachRouteImport.update({
   id: '/reach',
   path: '/reach',
@@ -118,10 +153,39 @@ const AuthenticatedTasksRoute = AuthenticatedTasksRouteImport.update({
   path: '/tasks',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const LegalPrivacyRoute = LegalPrivacyRouteImport.update({
+  id: '/legal/privacy',
+  path: '/legal/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LegalTermsRoute = LegalTermsRouteImport.update({
+  id: '/legal/terms',
+  path: '/legal/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiInstagramWebhookRoute = ApiInstagramWebhookRouteImport.update({
+  id: '/api/instagram/webhook',
+  path: '/api/instagram/webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiOauthCallbackRoute = ApiOauthCallbackRouteImport.update({
+  id: '/api/oauth/callback',
+  path: '/api/oauth/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStorageSplatRoute = ApiStorageSplatRouteImport.update({
+  id: '/api/storage/$',
+  path: '/api/storage/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/accept-invite': typeof AcceptInviteRoute
   '/auth': typeof AuthRoute
+  '/forgot-password': typeof ForgotPasswordRoute
+  '/reset-password': typeof ResetPasswordRoute
+  '/verify-email': typeof VerifyEmailRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/conversion': typeof AuthenticatedConversionRoute
   '/customers': typeof AuthenticatedCustomersRoute
@@ -133,14 +197,24 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/positioning': typeof AuthenticatedPositioningRoute
   '/presence': typeof AuthenticatedPresenceRoute
+  '/rapid-entry': typeof AuthenticatedRapidEntryRoute
   '/reach': typeof AuthenticatedReachRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/tasks': typeof AuthenticatedTasksRoute
+  '/legal/privacy': typeof LegalPrivacyRoute
+  '/legal/terms': typeof LegalTermsRoute
+  '/api/instagram/webhook': typeof ApiInstagramWebhookRoute
+  '/api/oauth/callback': typeof ApiOauthCallbackRoute
+  '/api/storage/$': typeof ApiStorageSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/accept-invite': typeof AcceptInviteRoute
   '/auth': typeof AuthRoute
+  '/forgot-password': typeof ForgotPasswordRoute
+  '/reset-password': typeof ResetPasswordRoute
+  '/verify-email': typeof VerifyEmailRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/conversion': typeof AuthenticatedConversionRoute
   '/customers': typeof AuthenticatedCustomersRoute
@@ -152,16 +226,26 @@ export interface FileRoutesByTo {
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/positioning': typeof AuthenticatedPositioningRoute
   '/presence': typeof AuthenticatedPresenceRoute
+  '/rapid-entry': typeof AuthenticatedRapidEntryRoute
   '/reach': typeof AuthenticatedReachRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/tasks': typeof AuthenticatedTasksRoute
+  '/legal/privacy': typeof LegalPrivacyRoute
+  '/legal/terms': typeof LegalTermsRoute
+  '/api/instagram/webhook': typeof ApiInstagramWebhookRoute
+  '/api/oauth/callback': typeof ApiOauthCallbackRoute
+  '/api/storage/$': typeof ApiStorageSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/accept-invite': typeof AcceptInviteRoute
   '/auth': typeof AuthRoute
+  '/forgot-password': typeof ForgotPasswordRoute
+  '/reset-password': typeof ResetPasswordRoute
+  '/verify-email': typeof VerifyEmailRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/conversion': typeof AuthenticatedConversionRoute
   '/_authenticated/customers': typeof AuthenticatedCustomersRoute
@@ -173,16 +257,26 @@ export interface FileRoutesById {
   '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
   '/_authenticated/positioning': typeof AuthenticatedPositioningRoute
   '/_authenticated/presence': typeof AuthenticatedPresenceRoute
+  '/_authenticated/rapid-entry': typeof AuthenticatedRapidEntryRoute
   '/_authenticated/reach': typeof AuthenticatedReachRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
+  '/legal/privacy': typeof LegalPrivacyRoute
+  '/legal/terms': typeof LegalTermsRoute
+  '/api/instagram/webhook': typeof ApiInstagramWebhookRoute
+  '/api/oauth/callback': typeof ApiOauthCallbackRoute
+  '/api/storage/$': typeof ApiStorageSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/accept-invite'
     | '/auth'
+    | '/forgot-password'
+    | '/reset-password'
+    | '/verify-email'
     | '/admin'
     | '/conversion'
     | '/customers'
@@ -194,14 +288,24 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/positioning'
     | '/presence'
+    | '/rapid-entry'
     | '/reach'
     | '/reports'
     | '/settings'
     | '/tasks'
+    | '/legal/privacy'
+    | '/legal/terms'
+    | '/api/instagram/webhook'
+    | '/api/oauth/callback'
+    | '/api/storage/$'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/accept-invite'
     | '/auth'
+    | '/forgot-password'
+    | '/reset-password'
+    | '/verify-email'
     | '/admin'
     | '/conversion'
     | '/customers'
@@ -213,15 +317,25 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/positioning'
     | '/presence'
+    | '/rapid-entry'
     | '/reach'
     | '/reports'
     | '/settings'
     | '/tasks'
+    | '/legal/privacy'
+    | '/legal/terms'
+    | '/api/instagram/webhook'
+    | '/api/oauth/callback'
+    | '/api/storage/$'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
+    | '/accept-invite'
     | '/auth'
+    | '/forgot-password'
+    | '/reset-password'
+    | '/verify-email'
     | '/_authenticated/admin'
     | '/_authenticated/conversion'
     | '/_authenticated/customers'
@@ -233,16 +347,31 @@ export interface FileRouteTypes {
     | '/_authenticated/onboarding'
     | '/_authenticated/positioning'
     | '/_authenticated/presence'
+    | '/_authenticated/rapid-entry'
     | '/_authenticated/reach'
     | '/_authenticated/reports'
     | '/_authenticated/settings'
     | '/_authenticated/tasks'
+    | '/legal/privacy'
+    | '/legal/terms'
+    | '/api/instagram/webhook'
+    | '/api/oauth/callback'
+    | '/api/storage/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  AcceptInviteRoute: typeof AcceptInviteRoute
   AuthRoute: typeof AuthRoute
+  ForgotPasswordRoute: typeof ForgotPasswordRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
+  VerifyEmailRoute: typeof VerifyEmailRoute
+  LegalPrivacyRoute: typeof LegalPrivacyRoute
+  LegalTermsRoute: typeof LegalTermsRoute
+  ApiInstagramWebhookRoute: typeof ApiInstagramWebhookRoute
+  ApiOauthCallbackRoute: typeof ApiOauthCallbackRoute
+  ApiStorageSplatRoute: typeof ApiStorageSplatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -261,11 +390,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/accept-invite': {
+      id: '/accept-invite'
+      path: '/accept-invite'
+      fullPath: '/accept-invite'
+      preLoaderRoute: typeof AcceptInviteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth': {
       id: '/auth'
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/verify-email': {
+      id: '/verify-email'
+      path: '/verify-email'
+      fullPath: '/verify-email'
+      preLoaderRoute: typeof VerifyEmailRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/admin': {
@@ -345,6 +502,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPresenceRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/rapid-entry': {
+      id: '/_authenticated/rapid-entry'
+      path: '/rapid-entry'
+      fullPath: '/rapid-entry'
+      preLoaderRoute: typeof AuthenticatedRapidEntryRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/reach': {
       id: '/_authenticated/reach'
       path: '/reach'
@@ -373,6 +537,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedTasksRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/legal/privacy': {
+      id: '/legal/privacy'
+      path: '/legal/privacy'
+      fullPath: '/legal/privacy'
+      preLoaderRoute: typeof LegalPrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/legal/terms': {
+      id: '/legal/terms'
+      path: '/legal/terms'
+      fullPath: '/legal/terms'
+      preLoaderRoute: typeof LegalTermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/instagram/webhook': {
+      id: '/api/instagram/webhook'
+      path: '/api/instagram/webhook'
+      fullPath: '/api/instagram/webhook'
+      preLoaderRoute: typeof ApiInstagramWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/oauth/callback': {
+      id: '/api/oauth/callback'
+      path: '/api/oauth/callback'
+      fullPath: '/api/oauth/callback'
+      preLoaderRoute: typeof ApiOauthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/storage/$': {
+      id: '/api/storage/$'
+      path: '/api/storage/$'
+      fullPath: '/api/storage/$'
+      preLoaderRoute: typeof ApiStorageSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -388,6 +587,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedOnboardingRoute: typeof AuthenticatedOnboardingRoute
   AuthenticatedPositioningRoute: typeof AuthenticatedPositioningRoute
   AuthenticatedPresenceRoute: typeof AuthenticatedPresenceRoute
+  AuthenticatedRapidEntryRoute: typeof AuthenticatedRapidEntryRoute
   AuthenticatedReachRoute: typeof AuthenticatedReachRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
@@ -406,6 +606,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedOnboardingRoute: AuthenticatedOnboardingRoute,
   AuthenticatedPositioningRoute: AuthenticatedPositioningRoute,
   AuthenticatedPresenceRoute: AuthenticatedPresenceRoute,
+  AuthenticatedRapidEntryRoute: AuthenticatedRapidEntryRoute,
   AuthenticatedReachRoute: AuthenticatedReachRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
@@ -418,7 +619,16 @@ const AuthenticatedRouteRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  AcceptInviteRoute: AcceptInviteRoute,
   AuthRoute: AuthRoute,
+  ForgotPasswordRoute: ForgotPasswordRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
+  VerifyEmailRoute: VerifyEmailRoute,
+  LegalPrivacyRoute: LegalPrivacyRoute,
+  LegalTermsRoute: LegalTermsRoute,
+  ApiInstagramWebhookRoute: ApiInstagramWebhookRoute,
+  ApiOauthCallbackRoute: ApiOauthCallbackRoute,
+  ApiStorageSplatRoute: ApiStorageSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

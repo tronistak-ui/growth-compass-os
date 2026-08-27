@@ -13,7 +13,20 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { ArrowRight, Sparkles } from "lucide-react";
+import {
+  ArrowRight,
+  Sparkles,
+  Users,
+  UserPlus,
+  Percent,
+  DollarSign,
+  TrendingUp,
+  Receipt,
+  Tag,
+  Repeat,
+  Clock,
+  UserX,
+} from "lucide-react";
 import { AppShell } from "@/components/growth/shell";
 import {
   Panel,
@@ -27,20 +40,21 @@ import {
 import { useOrgData } from "@/lib/use-org-data";
 import { OnboardingChecklist } from "@/components/growth/onboarding-checklist";
 import { useOnboardingChecklist } from "@/lib/checklist";
-import { money, pct, monthlySeries } from "@/lib/metrics";
+import { money, pct, monthlySeries, buildAdvisorSummary, priorityLabel } from "@/lib/metrics";
 import { lexicon } from "@/lib/niches";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { BRAND_FULL, BRAND_TAGLINE } from "@/lib/brand";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
     meta: [
-      { title: "Dashboard — TrendZypher Growth OS" },
+      { title: `Dashboard — ${BRAND_FULL}` },
       {
         name: "description",
         content: "Business health, growth funnel, revenue and opportunities in one live view.",
       },
-      { property: "og:title", content: "Dashboard — TrendZypher Growth OS" },
+      { property: "og:title", content: `Dashboard — ${BRAND_FULL}` },
       { property: "og:description", content: "Live business health, funnel and profit view." },
     ],
   }),
@@ -70,13 +84,15 @@ function Dashboard() {
     { label: "Revenue", value: m.totalRevenue },
   ];
   const maxFunnel = Math.max(...funnel.map((f) => f.value), 1);
+  const advisor = buildAdvisorSummary(m, d.insights, cur);
+  const top = advisor.topOpportunity;
 
   if (!d.isLoading && !d.org) {
     return (
       <AppShell title="Dashboard">
         <EmptyState
           title="Set up your business"
-          description="Complete onboarding so the Growth OS can start tracking presence, leads, customers and profit."
+          description={`Complete onboarding so the ${BRAND_TAGLINE} can start tracking presence, leads, customers and profit.`}
           action={
             <Link to="/onboarding">
               <Button>Start onboarding</Button>
@@ -106,10 +122,56 @@ function Dashboard() {
       ) : (
         <div className="space-y-6">
           <Panel
-            title="Growth OS rollout"
+            title={`${BRAND_TAGLINE} rollout`}
             description="Where this business is in the onboarding journey"
           >
             <StageTracker stage={String(d.org?.["onboarding_status"] ?? "not_started")} />
+          </Panel>
+
+          <Panel
+            title="Growth advisor"
+            description="Rule-based synthesis of everything below — no AI, no guesswork"
+            actions={<Sparkles className="size-4 text-primary" />}
+          >
+            {top ? (
+              <div className="space-y-4">
+                <div>
+                  <div className="text-[11px] font-medium tracking-[0.08em] text-muted-foreground uppercase">
+                    Biggest opportunity this month
+                  </div>
+                  <div className="mt-1 text-base font-semibold text-ink">{top.title}</div>
+                  <p className="mt-1 text-sm text-muted-foreground">{top.detail}</p>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                  <AdvisorField label="Recommended action" value={top.action} />
+                  <AdvisorField label="Why it matters" value={top.detail} />
+                  <AdvisorField
+                    label="Metric affected"
+                    value={`${top.module}: ${top.current} → ${top.target}`}
+                  />
+                  <AdvisorField label="Priority" value={priorityLabel(top.impact)} />
+                  <div className="flex items-end">
+                    <Link to="/growth">
+                      <Button size="sm" variant="outline">
+                        Track result <ArrowRight className="ml-1 size-3.5" />
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Add leads, customers and revenue to unlock a recommendation.
+              </p>
+            )}
+
+            <div className="mt-5 grid gap-3 border-t border-border pt-5 sm:grid-cols-2 lg:grid-cols-5">
+              <QAField question="Where are my customers coming from?" a={advisor.sourcing} />
+              <QAField question="Where am I losing them?" a={advisor.leaking} />
+              <QAField question="How much money am I making?" a={advisor.revenue} />
+              <QAField question="What's preventing me from making more?" a={advisor.blocker} />
+              <QAField question="What should I do next?" a={advisor.nextAction} />
+            </div>
           </Panel>
 
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
@@ -117,29 +179,38 @@ function Dashboard() {
               label={lex.leads}
               value={m.totalLeads}
               hint={`${m.qualifiedLeads} qualified`}
+              icon={Users}
             />
             <StatCard
               label={`New ${lex.customers.toLowerCase()}`}
               value={m.newCustomersThisMonth}
               hint={`${m.totalCustomers} total`}
+              icon={UserPlus}
             />
-            <StatCard label="Conversion rate" value={pct(m.conversionRate)} hint="leads → won" />
+            <StatCard
+              label="Conversion rate"
+              value={pct(m.conversionRate)}
+              hint="leads → won"
+              icon={Percent}
+            />
             <StatCard
               label="Revenue (MTD)"
               value={money(m.revenueThisMonth, cur)}
               trend={m.revenueGrowth}
+              icon={DollarSign}
             />
             <StatCard
               label="Profit (MTD)"
               value={money(m.profit, cur)}
               hint={`${pct(m.margin)} margin`}
               tone={m.profit >= 0 ? "positive" : "negative"}
+              icon={TrendingUp}
             />
-            <StatCard label="Expenses (MTD)" value={money(m.expensesThisMonth, cur)} />
-            <StatCard label="Average order value" value={money(m.aov, cur)} />
-            <StatCard label="Repeat customer rate" value={pct(m.repeatRate, 0)} />
-            <StatCard label="Follow-ups due" value={m.followUpsDue} />
-            <StatCard label="Lost leads" value={m.lostLeads} />
+            <StatCard label="Expenses (MTD)" value={money(m.expensesThisMonth, cur)} icon={Receipt} />
+            <StatCard label="Average order value" value={money(m.aov, cur)} icon={Tag} />
+            <StatCard label="Repeat customer rate" value={pct(m.repeatRate, 0)} icon={Repeat} />
+            <StatCard label="Follow-ups due" value={m.followUpsDue} icon={Clock} />
+            <StatCard label="Lost leads" value={m.lostLeads} icon={UserX} />
           </div>
 
           <div className="grid gap-4 lg:grid-cols-3">
@@ -333,5 +404,26 @@ function Dashboard() {
         </div>
       )}
     </AppShell>
+  );
+}
+
+function AdvisorField({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="text-[11px] font-medium tracking-[0.08em] text-muted-foreground uppercase">
+        {label}
+      </div>
+      <div className="mt-0.5 line-clamp-3 text-[13px] text-foreground/90">{value}</div>
+    </div>
+  );
+}
+
+function QAField({ question, a }: { question: string; a: { answer: string; detail: string } }) {
+  return (
+    <div>
+      <div className="text-[11px] text-muted-foreground">{question}</div>
+      <div className="mt-0.5 text-[13px] font-medium text-ink">{a.answer}</div>
+      <div className="mt-0.5 line-clamp-2 text-[12px] text-muted-foreground">{a.detail}</div>
+    </div>
   );
 }

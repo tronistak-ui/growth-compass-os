@@ -92,6 +92,79 @@ export const LEAD_STAGES = [
   { key: "lost", label: "Lost" },
 ] as const;
 
+/**
+ * Per-niche labels for the same six canonical stage keys above — the status
+ * values written to leads.status never change, so computeMetrics keeps
+ * working untouched. Only the words shown for each stage change, so a
+ * dental pipeline reads "Consultation Booked" where a generic one reads
+ * "Qualified", without a separate pipeline engine per niche.
+ */
+const LEAD_STAGE_LABELS: Record<string, Partial<Record<(typeof LEAD_STAGES)[number]["key"], string>>> = {
+  Dental: {
+    qualified: "Consultation Booked",
+    proposal: "Treatment Proposed",
+    won: "Treatment Accepted",
+    lost: "Declined",
+  },
+  "Salon / Barber": {
+    qualified: "Booking Requested",
+    proposal: "Booked",
+    won: "Visited",
+    lost: "No-show / Lost",
+  },
+  "Gym / Fitness": {
+    qualified: "Trial Booked",
+    proposal: "Trial Attended",
+    won: "Member",
+    lost: "Didn't Join",
+  },
+  Restaurant: {
+    new: "New Enquiry",
+    qualified: "Reservation Requested",
+    proposal: "Reservation Confirmed",
+    won: "Dined",
+    lost: "Cancelled",
+  },
+  Hotel: {
+    qualified: "Availability Checked",
+    proposal: "Quote Sent",
+    won: "Booked",
+    lost: "Booked Elsewhere",
+  },
+  "Real Estate": {
+    qualified: "Site Visit Scheduled",
+    proposal: "Negotiation",
+    won: "Closed Won",
+    lost: "Closed Lost",
+  },
+  Photography: {
+    qualified: "Date Checked",
+    proposal: "Quote Sent",
+    won: "Booked",
+    lost: "Booked Elsewhere",
+  },
+  "Home / Local Services": {
+    qualified: "Site Assessed",
+    proposal: "Quote Sent",
+    won: "Job Won",
+    lost: "Job Lost",
+  },
+};
+
+const ECOM_LEAD_LABELS: Partial<Record<(typeof LEAD_STAGES)[number]["key"], string>> = {
+  qualified: "Cart / Enquiry",
+  proposal: "Order Placed",
+  won: "Delivered",
+  lost: "Abandoned",
+};
+
+/** Niche-appropriate labels for the same six canonical lead stages. */
+export function leadStages(niche?: string | null): { key: string; label: string }[] {
+  const overrides =
+    (niche && LEAD_STAGE_LABELS[niche]) || (niche && ECOM_LIKE.includes(niche) ? ECOM_LEAD_LABELS : {});
+  return LEAD_STAGES.map((s) => ({ key: s.key, label: overrides[s.key] ?? s.label }));
+}
+
 export const EXPENSE_CATEGORIES = [
   "marketing",
   "operations",
@@ -192,6 +265,12 @@ const NICHE_CONFIG: Record<string, Partial<Omit<NicheConfig, "lexicon">>> = {
     northStar: "Active members",
     offerWord: "Membership",
   },
+  Wellness: {
+    priorityChannels: ["instagram", "google", "referral", "whatsapp"],
+    expenseCategories: ["materials", "staff", "marketing", "rent"],
+    northStar: "Repeat client rate",
+    offerWord: "Session",
+  },
   Dental: {
     priorityChannels: ["google", "referral", "facebook", "whatsapp"],
     expenseCategories: ["materials", "staff", "marketing", "rent"],
@@ -221,6 +300,12 @@ const NICHE_CONFIG: Record<string, Partial<Omit<NicheConfig, "lexicon">>> = {
     expenseCategories: ["materials", "staff", "marketing", "delivery"],
     northStar: "Jobs completed",
     offerWord: "Service",
+  },
+  "Auto / Detailing": {
+    priorityChannels: ["google", "referral", "instagram", "whatsapp"],
+    expenseCategories: ["materials", "staff", "marketing", "delivery"],
+    northStar: "Cars detailed per month",
+    offerWord: "Package",
   },
 };
 
@@ -258,4 +343,97 @@ export function nicheConfig(niche?: string | null): NicheConfig {
     northStar: base.northStar ?? "New customers per month",
     offerWord: base.offerWord ?? "Offer",
   };
+}
+
+export type InsightBenchmarks = {
+  /** Won ÷ total leads, below which "low conversion" fires. */
+  conversionRateTarget: number;
+  /** % of customers with 2+ purchases, below which "low repeat rate" fires. */
+  repeatRateTarget: number;
+  /** Profit margin %, below which "thin margin" fires. */
+  marginTarget: number;
+  /**
+   * Fallback expected days between purchases, used only for a customer with
+   * fewer than 2 purchases (no personal rhythm to measure yet) — drives when
+   * they're flagged "At Risk"/"Lost" and when they show up as a rebooking
+   * candidate. Once a customer has bought twice, their own gap replaces this.
+   */
+  typicalRepeatGapDays: number;
+};
+
+const DEFAULT_BENCHMARKS: InsightBenchmarks = {
+  conversionRateTarget: 20,
+  repeatRateTarget: 25,
+  marginTarget: 20,
+  typicalRepeatGapDays: 45,
+};
+
+/**
+ * Same flat 20%/25%/20% bar for every business was the biggest honest
+ * weakness in the insight engine — a dental practice and a jewelry brand
+ * don't convert, retain or margin the same way. These aren't scientific
+ * benchmarks, just defensible category norms (a restaurant runs thin
+ * margins by nature; a photography studio's is mostly labor, so it should
+ * run high) — good enough to stop flagging a healthy business as broken.
+ */
+const INSIGHT_BENCHMARKS: Record<string, Partial<InsightBenchmarks>> = {
+  Restaurant: { conversionRateTarget: 40, repeatRateTarget: 35, marginTarget: 15, typicalRepeatGapDays: 30 },
+  "Salon / Barber": {
+    conversionRateTarget: 35,
+    repeatRateTarget: 45,
+    marginTarget: 25,
+    typicalRepeatGapDays: 35,
+  },
+  "Gym / Fitness": {
+    conversionRateTarget: 15,
+    repeatRateTarget: 50,
+    marginTarget: 20,
+    typicalRepeatGapDays: 30,
+  },
+  Wellness: {
+    conversionRateTarget: 30,
+    repeatRateTarget: 35,
+    marginTarget: 25,
+    typicalRepeatGapDays: 30,
+  },
+  Dental: { conversionRateTarget: 30, repeatRateTarget: 20, marginTarget: 30, typicalRepeatGapDays: 180 },
+  "Real Estate": {
+    conversionRateTarget: 10,
+    repeatRateTarget: 5,
+    marginTarget: 30,
+    typicalRepeatGapDays: 730,
+  },
+  Hotel: { conversionRateTarget: 35, repeatRateTarget: 20, marginTarget: 15, typicalRepeatGapDays: 180 },
+  Photography: {
+    conversionRateTarget: 25,
+    repeatRateTarget: 10,
+    marginTarget: 35,
+    typicalRepeatGapDays: 365,
+  },
+  "Home / Local Services": {
+    conversionRateTarget: 25,
+    repeatRateTarget: 20,
+    marginTarget: 20,
+    typicalRepeatGapDays: 120,
+  },
+  "Auto / Detailing": {
+    conversionRateTarget: 30,
+    repeatRateTarget: 25,
+    marginTarget: 20,
+    typicalRepeatGapDays: 75,
+  },
+};
+
+for (const n of ECOM_LIKE) {
+  INSIGHT_BENCHMARKS[n] = {
+    conversionRateTarget: 15,
+    repeatRateTarget: 30,
+    marginTarget: 20,
+    typicalRepeatGapDays: 45,
+  };
+}
+
+export function insightBenchmarks(niche?: string | null): InsightBenchmarks {
+  const base = (niche && INSIGHT_BENCHMARKS[niche]) || {};
+  return { ...DEFAULT_BENCHMARKS, ...base };
 }

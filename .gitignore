@@ -22,9 +22,15 @@ dist-ssr
 
 supabase/.temp/
 
-# bun.lock is authoritative; package-lock.json was only generated locally
-# because bun wasn't available in this environment.
-package-lock.json
+# Contains real secrets as of the Phase 1-4 migration (session/OAuth-state/
+# token-encryption keys, OAuth client secrets) — was previously tracked
+# because it only held Supabase's public/publishable keys. Untracked below;
+# see .env.example (if present) or the chat history for which vars it needs.
+.env
+
+# Local filesystem storage driver's dev root (server/storage/local-driver.server.ts)
+.data/
+
 
 # Editor directories and files
 .vscode/*

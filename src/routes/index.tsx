@@ -13,11 +13,12 @@ import {
   Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BRAND_NAME, BRAND_TAGLINE, BRAND_FULL } from "@/lib/brand";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "TrendZypher Growth OS — Run your whole business growth in one place" },
+      { title: `${BRAND_FULL} — Run your whole business growth in one place` },
       {
         name: "description",
         content:
@@ -25,7 +26,7 @@ export const Route = createFileRoute("/")({
       },
       {
         property: "og:title",
-        content: "TrendZypher Growth OS — Run your whole business growth in one place",
+        content: `${BRAND_FULL} — Run your whole business growth in one place`,
       },
       {
         property: "og:description",
@@ -91,7 +92,7 @@ const STEPS = [
   {
     n: "02",
     title: "Capture the real numbers",
-    body: "Add leads, customers, campaigns, revenue and expenses. Everything lives in one multi-tenant workspace.",
+    body: "Add leads, customers, campaigns, revenue and expenses. Everything lives in one connected workspace, built around your business.",
   },
   {
     n: "03",
@@ -110,7 +111,7 @@ function Landing() {
               <BarChart3 className="size-4 text-primary-foreground" />
             </div>
             <span className="font-display text-sm font-semibold tracking-tight text-ink">
-              TrendZypher <span className="text-muted-foreground">Growth OS</span>
+              {BRAND_NAME} <span className="text-muted-foreground">{BRAND_TAGLINE}</span>
             </span>
           </div>
           <nav className="hidden items-center gap-7 text-sm text-muted-foreground md:flex">
@@ -154,14 +155,14 @@ function Landing() {
                 measured in one place.
               </h1>
               <p className="mt-5 max-w-2xl text-base leading-relaxed text-muted-foreground md:text-lg">
-                TrendZypher connects presence, customer discovery, reach, conversion, CRM, revenue
-                and profit into a single instrument panel — so you always know what is working,
-                what is leaking, and what to do next.
+                {BRAND_NAME} connects presence, customer discovery, reach, conversion, CRM, revenue
+                and profit into a single instrument panel — so you always know what is working, what
+                is leaking, and what to do next.
               </p>
               <div className="mt-8 flex flex-wrap items-center gap-3">
                 <Link to="/auth">
                   <Button size="lg">
-                    Start free <ArrowRight className="ml-1.5 size-4" />
+                    Get started <ArrowRight className="ml-1.5 size-4" />
                   </Button>
                 </Link>
                 <a href="#modules">
@@ -171,13 +172,15 @@ function Landing() {
                 </a>
               </div>
               <ul className="mt-6 flex flex-wrap gap-x-6 gap-y-2 text-xs text-muted-foreground">
-                {["No credit card", "Multi-business workspaces", "Your data stays private"].map(
-                  (t) => (
-                    <li key={t} className="flex items-center gap-1.5">
-                      <Check className="size-3.5 text-success" /> {t}
-                    </li>
-                  ),
-                )}
+                {[
+                  "Hosted on your own server",
+                  "Nothing shared with anyone else",
+                  "Yours after setup — no subscription",
+                ].map((t) => (
+                  <li key={t} className="flex items-center gap-1.5">
+                    <Check className="size-3.5 text-success" /> {t}
+                  </li>
+                ))}
               </ul>
             </div>
 
@@ -267,7 +270,7 @@ function Landing() {
                   "Catch follow-ups before they go cold",
                   "See which channel actually produces paying customers",
                   "Track presence gaps that cost you discovery",
-                  "Run several businesses from one login",
+                  "No recurring bill chipping away at your margin",
                 ].map((t) => (
                   <li key={t} className="flex items-start gap-2.5 text-sm text-foreground/90">
                     <Check className="mt-0.5 size-4 shrink-0 text-success" />
@@ -330,8 +333,18 @@ function Landing() {
 
       <footer className="border-t border-border">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-5 py-8 text-xs text-muted-foreground sm:flex-row">
-          <span>© {new Date().getFullYear()} TrendZypher Growth OS</span>
+          <span>
+            © {new Date().getFullYear()} {BRAND_FULL}
+          </span>
           <span>Presence · Reach · Conversion · Revenue · Profit</span>
+          <div className="flex items-center gap-4">
+            <Link to="/legal/terms" className="hover:text-primary">
+              Terms
+            </Link>
+            <Link to="/legal/privacy" className="hover:text-primary">
+              Privacy
+            </Link>
+          </div>
         </div>
       </footer>
     </div>
