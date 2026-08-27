@@ -31,9 +31,6 @@ supabase/.temp/
 # Local filesystem storage driver's dev root (server/storage/local-driver.server.ts)
 .data/
 
-# bun.lock is authoritative; package-lock.json was only generated locally
-# because bun wasn't available in this environment.
-package-lock.json
 
 # Editor directories and files
 .vscode/*
