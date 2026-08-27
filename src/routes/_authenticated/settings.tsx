@@ -16,8 +16,14 @@ import {
 } from "@/components/ui/dialog";
 import { useActiveOrg, useProfile, useSaveRow, signOut as signOutSession } from "@/lib/growth";
 import { changePassword } from "@/server/functions/password-reset";
-import { listOrgTeam, inviteTeamMember, revokeInvite, removeTeamMember } from "@/server/functions/team";
+import {
+  listOrgTeam,
+  inviteTeamMember,
+  revokeInvite,
+  removeTeamMember,
+} from "@/server/functions/team";
 import { exportOrgData, deleteOrganization } from "@/server/functions/organizations";
+import { deleteMyAccount } from "@/server/functions/auth";
 import { BRAND_FULL, BRAND_TAGLINE, SUPPORT_EMAIL } from "@/lib/brand";
 import { NICHES, ONBOARDING_STAGES, stageLabel } from "@/lib/niches";
 import {
@@ -161,6 +167,7 @@ function SettingsPage() {
           <div className="mt-4 border-t pt-4">
             <ChangePasswordForm />
           </div>
+          <DeleteAccountSection profile={profile} org={org} />
         </Panel>
       </div>
 
@@ -169,7 +176,11 @@ function SettingsPage() {
       <DataPanel org={org} orgId={orgId} />
 
       {SUPPORT_EMAIL && (
-        <Panel className="mt-4" title="Get help" description="Something not working, or have a question?">
+        <Panel
+          className="mt-4"
+          title="Get help"
+          description="Something not working, or have a question?"
+        >
           <a
             href={`mailto:${SUPPORT_EMAIL}`}
             className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
@@ -182,7 +193,13 @@ function SettingsPage() {
   );
 }
 
-function DataPanel({ org, orgId }: { org: Record<string, any> | null | undefined; orgId: string | undefined }) {
+function DataPanel({
+  org,
+  orgId,
+}: {
+  org: Record<string, any> | null | undefined;
+  orgId: string | undefined;
+}) {
   const navigate = useNavigate();
   const [exporting, setExporting] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -251,14 +268,18 @@ function DataPanel({ org, orgId }: { org: Record<string, any> | null | undefined
             <DialogTitle>Delete {org?.["name"] ?? "this business"}?</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            This permanently deletes every lead, customer, revenue record, task and setting for
-            this business. There is no undo — export your data first if you want a copy.
+            This permanently deletes every lead, customer, revenue record, task and setting for this
+            business. There is no undo — export your data first if you want a copy.
           </p>
           <div className="space-y-1.5">
             <Label htmlFor="confirm_name" className="text-xs text-muted-foreground">
               Type <b>{org?.["name"]}</b> to confirm
             </Label>
-            <Input id="confirm_name" value={confirmName} onChange={(e) => setConfirmName(e.target.value)} />
+            <Input
+              id="confirm_name"
+              value={confirmName}
+              onChange={(e) => setConfirmName(e.target.value)}
+            />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteOpen(false)}>
@@ -278,7 +299,13 @@ function DataPanel({ org, orgId }: { org: Record<string, any> | null | undefined
   );
 }
 
-function TeamPanel({ orgId, currentUserId }: { orgId: string | undefined; currentUserId: string | undefined }) {
+function TeamPanel({
+  orgId,
+  currentUserId,
+}: {
+  orgId: string | undefined;
+  currentUserId: string | undefined;
+}) {
   const qc = useQueryClient();
   const [email, setEmail] = useState("");
   const [inviting, setInviting] = useState(false);
@@ -445,7 +472,9 @@ function ChangePasswordForm() {
     setLoading(true);
     try {
       await changePassword({ data: { currentPassword, newPassword } });
-      toast.success("Password changed — you're still signed in here, but every other device was signed out.");
+      toast.success(
+        "Password changed — you're still signed in here, but every other device was signed out.",
+      );
       e.currentTarget.reset();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not change password");
@@ -461,7 +490,13 @@ function ChangePasswordForm() {
         <Label htmlFor="current_password" className="text-xs text-muted-foreground">
           Current password
         </Label>
-        <Input id="current_password" name="current_password" type="password" required autoComplete="current-password" />
+        <Input
+          id="current_password"
+          name="current_password"
+          type="password"
+          required
+          autoComplete="current-password"
+        />
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="new_password" className="text-xs text-muted-foreground">
@@ -493,5 +528,89 @@ function ChangePasswordForm() {
         {loading ? "Changing…" : "Change password"}
       </Button>
     </form>
+  );
+}
+
+function DeleteAccountSection({
+  profile,
+  org,
+}: {
+  profile: Record<string, any> | null | undefined;
+  org: Record<string, any> | null | undefined;
+}) {
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const [confirmEmail, setConfirmEmail] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const ownsCurrentOrg = !!org && !!profile && org["owner_id"] === profile["id"];
+
+  async function confirmDeleteAccount() {
+    setDeleting(true);
+    try {
+      await deleteMyAccount({ data: { confirmEmail } });
+      await signOutSession();
+      navigate({ to: "/auth" });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not delete account");
+      setDeleting(false);
+    }
+  }
+
+  return (
+    <div className="mt-4 border-t pt-4">
+      <Label className="text-sm font-medium">Delete account</Label>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Permanently deletes your login.{" "}
+        {ownsCurrentOrg
+          ? "You own this business — deleting your account deletes it and everything in it, for every teammate too."
+          : "Any business you don't own is unaffected; you're just removed from it."}
+      </p>
+      <Button
+        variant="outline"
+        size="sm"
+        className="mt-2 border-destructive/40 text-destructive hover:bg-destructive/10"
+        onClick={() => setOpen(true)}
+      >
+        Delete my account
+      </Button>
+
+      <Dialog open={open} onOpenChange={(o) => !o && setOpen(false)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete your account?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            This permanently deletes your login and personal access.{" "}
+            {ownsCurrentOrg
+              ? "Because you own this business, it and every lead, customer and revenue record in it will be deleted too — for everyone on your team."
+              : ""}{" "}
+            There is no undo.
+          </p>
+          <div className="space-y-1.5">
+            <Label htmlFor="confirm_email" className="text-xs text-muted-foreground">
+              Type <b>{profile?.["email"]}</b> to confirm
+            </Label>
+            <Input
+              id="confirm_email"
+              value={confirmEmail}
+              onChange={(e) => setConfirmEmail(e.target.value)}
+              autoComplete="off"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleting || confirmEmail !== profile?.["email"]}
+              onClick={confirmDeleteAccount}
+            >
+              {deleting ? "Deleting…" : "Delete my account"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }

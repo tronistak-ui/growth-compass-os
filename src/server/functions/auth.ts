@@ -14,9 +14,10 @@ import { checkRateLimit, getClientIp } from "../auth/rate-limit.server";
 import { sendVerificationEmail } from "../auth/email-verification.server";
 import { getUserRoles } from "../authz.server";
 import { db } from "@/db/client";
-import { userRoles } from "@/db/schema";
+import { userRoles, users } from "@/db/schema";
 import { verifySessionCookie } from "../auth/session-cookie.server";
 import { getCookie } from "@tanstack/react-start/server";
+import { eq } from "drizzle-orm";
 
 // createServerOnlyFn (not a plain function) keeps this out of the client
 // bundle — a plain export here pulls session-cookie.server's signing key
@@ -135,4 +136,27 @@ export const getMyRoles = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .handler(async ({ context }) => {
     return getUserRoles(context.userId);
+  });
+
+const deleteMyAccountInput = z.object({ confirmEmail: z.string() });
+
+/**
+ * Permanently deletes the signed-in user's own login — separate from, and a
+ * superset of, deleteOrganization in organizations.ts (that removes one
+ * business; this removes the person). organizations.ownerId cascades from
+ * users.id, so if this account owns a business, that business and
+ * everything in it goes too — same for organization_members and user_roles
+ * rows anywhere else this account has access. No manual cleanup needed
+ * beyond this one delete, same principle as deleteOrganization.
+ */
+export const deleteMyAccount = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .validator((input: unknown) => deleteMyAccountInput.parse(input))
+  .handler(async ({ data, context }) => {
+    if (data.confirmEmail !== context.user.email) {
+      throw new Error("That doesn't match your email — type it exactly to confirm");
+    }
+    await db.delete(users).where(eq(users.id, context.userId));
+    deleteCookie(SESSION_COOKIE_NAME, { path: "/" });
+    return { ok: true };
   });
