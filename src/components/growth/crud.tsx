@@ -176,10 +176,14 @@ export function CrudPanel({
     // A select field with a `csvValue` (e.g. customer_id) exports the
     // option's label, not its stored value — match back to the option so
     // re-importing an exported file round-trips instead of saving the
-    // label text into a foreign-key column.
+    // label text into a foreign-key column. If nothing matches (e.g. the
+    // file was exported from a different org, or the referenced row was
+    // renamed/deleted since), omit the field rather than passing the raw
+    // label through — for a foreign-key column that's a stored value some
+    // other org's ID or name text, guaranteed to fail the insert outright.
     if (field.type === "select" && field.options) {
       const match = field.options.find((o) => o.value === raw || o.label === raw);
-      if (match) return match.value;
+      return match?.value;
     }
     return raw;
   }
@@ -195,6 +199,7 @@ export function CrudPanel({
       }
       let ok = 0;
       let failed = 0;
+      let firstError: string | undefined;
       for (const record of records) {
         const values: Row = {};
         for (const f of csvFields) {
@@ -206,12 +211,17 @@ export function CrudPanel({
         try {
           await save.mutateAsync({ ...defaults, ...values });
           ok++;
-        } catch {
+        } catch (e) {
           failed++;
+          firstError ??= e instanceof Error ? e.message : String(e);
         }
       }
-      if (ok > 0) toast.success(`Imported ${ok} row${ok === 1 ? "" : "s"}${failed ? `, ${failed} failed` : ""}`);
-      else toast.error(`Import failed for all ${failed} row${failed === 1 ? "" : "s"}`);
+      const errorSuffix = firstError ? ` — ${firstError}` : "";
+      if (ok > 0)
+        toast.success(
+          `Imported ${ok} row${ok === 1 ? "" : "s"}${failed ? `, ${failed} failed${errorSuffix}` : ""}`,
+        );
+      else toast.error(`Import failed for all ${failed} row${failed === 1 ? "" : "s"}${errorSuffix}`);
     } catch {
       toast.error("Could not read that file — make sure it's a CSV");
     } finally {
