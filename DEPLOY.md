@@ -8,7 +8,12 @@ setup.
 ## 1. Prerequisites on the VM
 
 - Ubuntu 22.04+ (or similar), with a non-root sudo user
-- Node.js 22+ (`node --version` — this app is built and tested on Node 24)
+- **Node.js 24** — install via `setup_24.x`, not `setup_22.x`. This isn't
+  just a "tested on" preference: `package-lock.json` in this repo is
+  generated with npm 11 (Node 24's bundled npm), and `npm ci` under npm 10
+  (Node 22's bundled npm) fails with `Missing: lru-cache@... from lock
+  file` — the two npm majors resolve this project's optional peer deps
+  differently. Confirm with `node --version` / `npm --version`.
 - Postgres 16 (either installed directly on the VM, or run via the included
   `docker-compose.yml` — either is fine, this app only needs a reachable
   `DATABASE_URL`)
@@ -16,7 +21,20 @@ setup.
   server (`scripts/serve.mjs`) speaks plain HTTP only, on purpose; it expects
   to sit behind a proxy that handles HTTPS, same as most Node deployments
 - A domain name pointed at the VM, with a valid TLS cert (`certbot` +
-  Let's Encrypt is the standard free option)
+  Let's Encrypt is the standard free option). No domain yet? `certbot`
+  can still issue a real cert against `<ip-with-dashes>.nip.io` (resolves
+  straight to that IP) — enough to get genuine HTTPS for testing.
+- **Swap space, if the VM has ~1GB RAM or less** (e.g. a free-tier
+  micro instance). `npm ci` / `vite build` can exhaust 1GB and trigger the
+  OOM killer, which can take down the SSH session along with the build.
+  Add a 2GB swapfile before Step 2:
+  ```bash
+  sudo fallocate -l 2G /swapfile
+  sudo chmod 600 /swapfile
+  sudo mkswap /swapfile
+  sudo swapon /swapfile
+  echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+  ```
 
 ## 2. Get the code and configure it
 
@@ -26,6 +44,24 @@ cd growth-compass
 npm ci
 cp .env.example .env   # or hand-write one — see the table below
 ```
+
+After `npm ci`, check whether any install scripts were blocked (a newer npm
+default requires explicit approval for install/postinstall scripts):
+
+```bash
+npm install-scripts ls
+```
+
+If it lists packages (typically `argon2` — needs a native compile via
+node-gyp, this app's password hashing depends on it — and `esbuild`, which
+needs its postinstall to fetch the right binary), approve each one:
+
+```bash
+npm install-scripts approve <package>@<version>
+```
+
+Skipping this produces a build that looks successful but breaks password
+hashing (and possibly the build tooling) at runtime.
 
 There is no `.env.example` committed yet — `.env` is gitignored on purpose
 (it holds real secrets). Copy the variable names from the reference table
@@ -45,7 +81,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 |---|---|---|
 | `BRAND_NAME`, `BRAND_TAGLINE` | Yes | Baked into the build at compile time — see white-label notes below |
 | `SUPPORT_EMAIL` | No | Leave empty to hide the "Contact support" link entirely |
-| `DATABASE_URL` | Yes | `postgres://user:pass@host:5432/dbname` |
+| `DATABASE_URL` | Yes | `postgres://user:pass@host:5432/dbname` — generate the DB password with the `base64url` form of the command above (not plain `base64`); a `/` or `+` in the password breaks URL parsing (`TypeError: Invalid URL` from the `postgres` driver) since it's embedded unescaped in the connection string |
 | `SESSION_SECRET` | Yes | 32 random bytes, base64url |
 | `PLATFORM_ADMIN_CLAIM_SECRET` | Yes | Set before first deploy, claim admin immediately after, then treat as compromised (see step 5) |
 | `APP_BASE_URL` | Yes | The real public URL, e.g. `https://client.example.com` — used to build OAuth redirect URLs and links in emails |
@@ -131,6 +167,13 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now growth-compass
 sudo systemctl status growth-compass
 ```
+
+**Don't test sign-up/sign-in yet if TLS isn't live.** The session cookie is
+set with `secure: true` whenever `NODE_ENV=production` (see
+`src/server/functions/auth.ts`), and browsers silently drop `Secure`
+cookies over plain HTTP. Signing in before Step 5 is done will *look* like
+it works (no error) but the session never actually persists — you just get
+bounced back out. Finish Step 5 first, then test auth.
 
 ## 5. Reverse proxy + TLS
 
