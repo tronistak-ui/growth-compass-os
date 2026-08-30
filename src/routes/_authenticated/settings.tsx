@@ -25,7 +25,8 @@ import {
 import { exportOrgData, deleteOrganization } from "@/server/functions/organizations";
 import { deleteMyAccount } from "@/server/functions/auth";
 import { BRAND_FULL, BRAND_TAGLINE, SUPPORT_EMAIL } from "@/lib/brand";
-import { NICHES, ONBOARDING_STAGES, stageLabel } from "@/lib/niches";
+import { NICHES, ONBOARDING_STAGES, stageLabel, BUSINESS_GOALS } from "@/lib/niches";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -65,10 +66,27 @@ function SettingsPage() {
     setForm((f) => ({ ...f, [key]: value }));
   }
 
+  function toggleGoal(goal: string) {
+    setForm((f) => {
+      const goals: string[] = f["goals"] ?? [];
+      return {
+        ...f,
+        goals: goals.includes(goal) ? goals.filter((g) => g !== goal) : [...goals, goal],
+      };
+    });
+  }
+
   function submit() {
     if (!org) return;
     save.mutate(
-      { id: org["id"], name: form["name"], niche: form["niche"], currency: form["currency"] },
+      {
+        id: org["id"],
+        name: form["name"],
+        niche: form["niche"],
+        currency: form["currency"],
+        location: form["location"],
+        goals: form["goals"] ?? [],
+      },
       {
         onSuccess: () => toast.success("Settings saved"),
         onError: (e: any) => toast.error(e.message ?? "Could not save"),
@@ -146,6 +164,30 @@ function SettingsPage() {
                 onChange={(e) => set("currency", e.target.value.toUpperCase())}
                 placeholder="USD"
               />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Location</Label>
+              <Input
+                value={form["location"] ?? ""}
+                onChange={(e) => set("location", e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Business goals</Label>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {BUSINESS_GOALS.map((g) => (
+                  <label
+                    key={g}
+                    className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm"
+                  >
+                    <Checkbox
+                      checked={(form["goals"] ?? []).includes(g)}
+                      onCheckedChange={() => toggleGoal(g)}
+                    />
+                    {g}
+                  </label>
+                ))}
+              </div>
             </div>
             <Button onClick={submit} disabled={save.isPending}>
               {save.isPending ? "Saving…" : "Save changes"}
