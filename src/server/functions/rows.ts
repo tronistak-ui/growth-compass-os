@@ -4,7 +4,7 @@ import { and, asc, desc, eq, type SQL } from "drizzle-orm";
 import type { PgTable } from "drizzle-orm/pg-core";
 import { db } from "@/db/client";
 import { requireAuth } from "../auth/middleware";
-import { requireOrgMember, requireOrgWrite } from "../authz.server";
+import { requireOrgMember, requireOrgWrite, requireOrgOwner } from "../authz.server";
 import { toWireRow, toWireRows, fromWireValues, wireColumn } from "../wire";
 import {
   customerSegments,
@@ -135,7 +135,7 @@ export const saveRow = createServerFn({ method: "POST" })
     // (see settings.tsx, the only caller). No separate organization_id column.
     if (data.table === "organizations") {
       const id = (data.values["id"] as string | undefined) ?? data.orgId;
-      await requireOrgWrite(context.userId, id);
+      await requireOrgOwner(context.userId, id);
       const clean = { ...data.values };
       delete clean["id"];
       const mapped = fromWireValues(organizations, clean);
