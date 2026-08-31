@@ -5,7 +5,7 @@ import { Panel, StatCard } from "@/components/growth/ui";
 import { useActiveOrg, useRows } from "@/lib/growth";
 import { useOrgData } from "@/lib/use-org-data";
 import { CHANNELS, nicheConfig } from "@/lib/niches";
-import { money, sum } from "@/lib/metrics";
+import { money, sum, pct } from "@/lib/metrics";
 import { cn } from "@/lib/utils";
 import { BRAND_FULL } from "@/lib/brand";
 
@@ -110,6 +110,7 @@ function ReachPage() {
                   <th className="py-2 pr-4 font-medium">Channel</th>
                   <th className="py-2 pr-4 font-medium">Leads</th>
                   <th className="py-2 pr-4 font-medium">Customers</th>
+                  <th className="py-2 pr-4 font-medium">Conversion</th>
                   <th className="py-2 pr-4 font-medium">Revenue</th>
                   <th className="py-2 pr-4 font-medium">Spend</th>
                   <th className="py-2 pr-4 font-medium">CAC</th>
@@ -121,6 +122,9 @@ function ReachPage() {
                     <td className="py-2 pr-4 font-medium capitalize">{ch.channel}</td>
                     <td className="num py-2 pr-4">{ch.leads}</td>
                     <td className="num py-2 pr-4">{ch.customers}</td>
+                    <td className="num py-2 pr-4">
+                      {ch.leads > 0 ? pct(ch.conversionRate, 0) : "—"}
+                    </td>
                     <td className="num py-2 pr-4">{money(ch.revenue, currency)}</td>
                     <td className="num py-2 pr-4">{ch.spend > 0 ? money(ch.spend, currency) : "—"}</td>
                     <td
