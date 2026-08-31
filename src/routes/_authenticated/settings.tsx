@@ -253,11 +253,50 @@ function DataPanel({
     setExporting(true);
     try {
       const data = await exportOrgData({ data: { orgId } });
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      // Lazy-loaded — a ~1MB library only needed for this one, occasional
+      // action, no reason to weigh down the main bundle every page load.
+      const ExcelJS = (await import("exceljs")).default;
+      const workbook = new ExcelJS.Workbook();
+      workbook.created = new Date(data.exported_at);
+
+      const orgSheet = workbook.addWorksheet("Business");
+      orgSheet.columns = [
+        { header: "Field", key: "field", width: 24 },
+        { header: "Value", key: "value", width: 50 },
+      ];
+      for (const [key, value] of Object.entries(data.organization)) {
+        orgSheet.addRow({ field: key, value: value == null ? "" : String(value) });
+      }
+      orgSheet.getRow(1).font = { bold: true };
+
+      for (const [tableName, rows] of Object.entries(data.tables)) {
+        // Excel sheet names cap at 31 characters and reject a few symbols —
+        // table names here are plain snake_case, well under that, but title-
+        // case them so the tabs read as a business owner would expect.
+        const sheetName = tableName.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+        const sheet = workbook.addWorksheet(sheetName.slice(0, 31));
+        if (rows.length === 0) {
+          sheet.addRow(["No data"]);
+          continue;
+        }
+        const columns = [...new Set(rows.flatMap((r) => Object.keys(r)))];
+        sheet.columns = columns.map((c) => ({
+          header: c.replace(/_/g, " ").replace(/\b\w/g, (ch) => ch.toUpperCase()),
+          key: c,
+          width: Math.min(40, Math.max(12, c.length + 4)),
+        }));
+        for (const row of rows) sheet.addRow(row);
+        sheet.getRow(1).font = { bold: true };
+      }
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${org?.["name"] ?? "business"}-export-${new Date().toISOString().slice(0, 10)}.json`;
+      a.download = `${org?.["name"] ?? "business"}-export-${new Date().toISOString().slice(0, 10)}.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
       toast.success("Export downloaded");
