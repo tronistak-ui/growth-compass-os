@@ -25,7 +25,8 @@ import {
 import { exportOrgData, deleteOrganization } from "@/server/functions/organizations";
 import { deleteMyAccount } from "@/server/functions/auth";
 import { BRAND_FULL, BRAND_TAGLINE, SUPPORT_EMAIL } from "@/lib/brand";
-import { NICHES, ONBOARDING_STAGES, stageLabel } from "@/lib/niches";
+import { NICHES, ONBOARDING_STAGES, stageLabel, BUSINESS_GOALS } from "@/lib/niches";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -65,10 +66,27 @@ function SettingsPage() {
     setForm((f) => ({ ...f, [key]: value }));
   }
 
+  function toggleGoal(goal: string) {
+    setForm((f) => {
+      const goals: string[] = f["goals"] ?? [];
+      return {
+        ...f,
+        goals: goals.includes(goal) ? goals.filter((g) => g !== goal) : [...goals, goal],
+      };
+    });
+  }
+
   function submit() {
     if (!org) return;
     save.mutate(
-      { id: org["id"], name: form["name"], niche: form["niche"], currency: form["currency"] },
+      {
+        id: org["id"],
+        name: form["name"],
+        niche: form["niche"],
+        currency: form["currency"],
+        location: form["location"],
+        goals: form["goals"] ?? [],
+      },
       {
         onSuccess: () => toast.success("Settings saved"),
         onError: (e: any) => toast.error(e.message ?? "Could not save"),
@@ -77,6 +95,7 @@ function SettingsPage() {
   }
 
   const currentStage = form["onboarding_status"] ?? "not_started";
+  const isOwner = !!org && !!profile && org["owner_id"] === profile["id"];
 
   function setStage(stage: string) {
     if (!org) return;
@@ -102,7 +121,7 @@ function SettingsPage() {
         <StageTracker stage={currentStage} />
         <div className="mt-4 flex items-center gap-2">
           <Label className="text-xs text-muted-foreground">Move to</Label>
-          <Select value={currentStage} onValueChange={setStage}>
+          <Select value={currentStage} onValueChange={setStage} disabled={!isOwner}>
             <SelectTrigger className="h-8 w-48">
               <SelectValue />
             </SelectTrigger>
@@ -114,12 +133,24 @@ function SettingsPage() {
               ))}
             </SelectContent>
           </Select>
+          {!isOwner && (
+            <span className="text-xs text-muted-foreground">
+              Only the account owner can change this
+            </span>
+          )}
         </div>
       </Panel>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Panel title="Business profile" description="Used across every module">
-          <div className="space-y-3">
+        <Panel
+          title="Business profile"
+          description={
+            isOwner
+              ? "Used across every module"
+              : "Used across every module — only the account owner can edit"
+          }
+        >
+          <fieldset disabled={!isOwner} className="space-y-3 disabled:opacity-60">
             <div className="space-y-1.5">
               <Label>Business name</Label>
               <Input value={form["name"] ?? ""} onChange={(e) => set("name", e.target.value)} />
@@ -147,10 +178,34 @@ function SettingsPage() {
                 placeholder="USD"
               />
             </div>
+            <div className="space-y-1.5">
+              <Label>Location</Label>
+              <Input
+                value={form["location"] ?? ""}
+                onChange={(e) => set("location", e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Business goals</Label>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {BUSINESS_GOALS.map((g) => (
+                  <label
+                    key={g}
+                    className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm"
+                  >
+                    <Checkbox
+                      checked={(form["goals"] ?? []).includes(g)}
+                      onCheckedChange={() => toggleGoal(g)}
+                    />
+                    {g}
+                  </label>
+                ))}
+              </div>
+            </div>
             <Button onClick={submit} disabled={save.isPending}>
               {save.isPending ? "Saving…" : "Save changes"}
             </Button>
-          </div>
+          </fieldset>
         </Panel>
 
         <Panel title="Account" description="Your personal login">
@@ -173,7 +228,7 @@ function SettingsPage() {
 
       <TeamPanel orgId={orgId} currentUserId={profile?.["id"] as string | undefined} />
 
-      <DataPanel org={org} orgId={orgId} />
+      <DataPanel org={org} orgId={orgId} isOwner={isOwner} />
 
       {SUPPORT_EMAIL && (
         <Panel
@@ -196,9 +251,11 @@ function SettingsPage() {
 function DataPanel({
   org,
   orgId,
+  isOwner,
 }: {
   org: Record<string, any> | null | undefined;
   orgId: string | undefined;
+  isOwner: boolean;
 }) {
   const navigate = useNavigate();
   const [exporting, setExporting] = useState(false);
@@ -211,11 +268,50 @@ function DataPanel({
     setExporting(true);
     try {
       const data = await exportOrgData({ data: { orgId } });
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      // Lazy-loaded — a ~1MB library only needed for this one, occasional
+      // action, no reason to weigh down the main bundle every page load.
+      const ExcelJS = (await import("exceljs")).default;
+      const workbook = new ExcelJS.Workbook();
+      workbook.created = new Date(data.exported_at);
+
+      const orgSheet = workbook.addWorksheet("Business");
+      orgSheet.columns = [
+        { header: "Field", key: "field", width: 24 },
+        { header: "Value", key: "value", width: 50 },
+      ];
+      for (const [key, value] of Object.entries(data.organization)) {
+        orgSheet.addRow({ field: key, value: value == null ? "" : String(value) });
+      }
+      orgSheet.getRow(1).font = { bold: true };
+
+      for (const [tableName, rows] of Object.entries(data.tables)) {
+        // Excel sheet names cap at 31 characters and reject a few symbols —
+        // table names here are plain snake_case, well under that, but title-
+        // case them so the tabs read as a business owner would expect.
+        const sheetName = tableName.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+        const sheet = workbook.addWorksheet(sheetName.slice(0, 31));
+        if (rows.length === 0) {
+          sheet.addRow(["No data"]);
+          continue;
+        }
+        const columns = [...new Set(rows.flatMap((r) => Object.keys(r)))];
+        sheet.columns = columns.map((c) => ({
+          header: c.replace(/_/g, " ").replace(/\b\w/g, (ch) => ch.toUpperCase()),
+          key: c,
+          width: Math.min(40, Math.max(12, c.length + 4)),
+        }));
+        for (const row of rows) sheet.addRow(row);
+        sheet.getRow(1).font = { bold: true };
+      }
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${org?.["name"] ?? "business"}-export-${new Date().toISOString().slice(0, 10)}.json`;
+      a.download = `${org?.["name"] ?? "business"}-export-${new Date().toISOString().slice(0, 10)}.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
       toast.success("Export downloaded");
@@ -244,22 +340,28 @@ function DataPanel({
       <Panel
         className="mt-4"
         title="Your data"
-        description="Export everything, or permanently delete this business"
+        description={
+          isOwner
+            ? "Export everything, or permanently delete this business"
+            : "Only the account owner can export or delete business data"
+        }
       >
-        <div className="flex flex-wrap items-center gap-3">
-          <Button variant="outline" size="sm" onClick={exportData} disabled={exporting || !orgId}>
-            {exporting ? "Exporting…" : "Export all data"}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="border-destructive/40 text-destructive hover:bg-destructive/10"
-            onClick={() => setDeleteOpen(true)}
-            disabled={!orgId}
-          >
-            Delete this business
-          </Button>
-        </div>
+        {isOwner && (
+          <div className="flex flex-wrap items-center gap-3">
+            <Button variant="outline" size="sm" onClick={exportData} disabled={exporting || !orgId}>
+              {exporting ? "Exporting…" : "Export all data"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-destructive/40 text-destructive hover:bg-destructive/10"
+              onClick={() => setDeleteOpen(true)}
+              disabled={!orgId}
+            >
+              Delete this business
+            </Button>
+          </div>
+        )}
       </Panel>
 
       <Dialog open={deleteOpen} onOpenChange={(o) => !o && setDeleteOpen(false)}>
@@ -372,25 +474,32 @@ function TeamPanel({
   const members = team.data?.members ?? [];
   const invites = team.data?.invites ?? [];
   const ownerId = team.data?.ownerId;
+  const isOwner = !!currentUserId && currentUserId === ownerId;
 
   return (
     <Panel
       className="mt-4"
       title="Team"
-      description="Everyone invited gets the same full access as you — there's no separate permission tier yet"
+      description={
+        isOwner
+          ? "Staff get full access to day-to-day data — leads, customers, revenue and the rest. Only the owner manages the team, business settings, and exporting or deleting all data."
+          : "You have full access to day-to-day data. Managing the team, business settings, and exporting or deleting all data is restricted to the account owner."
+      }
     >
-      <form onSubmit={invite} className="mb-4 flex gap-2">
-        <Input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="teammate@business.com"
-          className="max-w-xs"
-        />
-        <Button type="submit" disabled={inviting || !email.trim()} size="sm">
-          {inviting ? "Sending…" : "Invite"}
-        </Button>
-      </form>
+      {isOwner && (
+        <form onSubmit={invite} className="mb-4 flex gap-2">
+          <Input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="teammate@business.com"
+            className="max-w-xs"
+          />
+          <Button type="submit" disabled={inviting || !email.trim()} size="sm">
+            {inviting ? "Sending…" : "Invite"}
+          </Button>
+        </form>
+      )}
 
       <ul className="space-y-1.5">
         {members.map((m) => (
@@ -411,7 +520,7 @@ function TeamPanel({
               <span className="text-xs text-muted-foreground capitalize">
                 {m.userId === ownerId ? "Owner" : m.role}
               </span>
-              {m.userId !== ownerId && (
+              {isOwner && m.userId !== ownerId && (
                 <Button variant="ghost" size="sm" onClick={() => remove(m.userId)}>
                   Remove
                 </Button>
@@ -421,7 +530,7 @@ function TeamPanel({
         ))}
       </ul>
 
-      {invites.length > 0 && (
+      {isOwner && invites.length > 0 && (
         <>
           <div className="mt-4 mb-2 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
             Pending invites

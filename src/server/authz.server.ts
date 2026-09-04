@@ -114,6 +114,29 @@ export async function requireOrgWrite(userId: string, orgId: string): Promise<vo
   if (!(await isOrgActivated(orgId))) throw new Error(NOT_ACTIVATED_MESSAGE);
 }
 
+/**
+ * Owner-only actions: managing the team (invite/remove members), exporting
+ * or permanently deleting all business data, and changing business
+ * settings (name/niche/currency/location/goals). A plain "staff" member
+ * passes requireOrgWrite fine — same day-to-day data access as the owner —
+ * but not this. platform_admin/support still bypass, same as everywhere
+ * else, so support can reach a business the owner has locked themselves
+ * out of.
+ */
+export async function requireOrgOwner(userId: string, orgId: string): Promise<void> {
+  if (await hasAnyRole(userId, ["platform_admin", "support"])) return;
+  const [org] = await db
+    .select({ ownerId: organizations.ownerId })
+    .from(organizations)
+    .where(eq(organizations.id, orgId))
+    .limit(1);
+  if (!org) throw new Error("Business not found");
+  if (org.ownerId !== userId) {
+    throw new Error("Only the account owner can do this");
+  }
+  if (await isOrgSuspended(orgId)) throw new Error(SUSPENDED_MESSAGE);
+}
+
 export async function requireAnyRole(userId: string, roles: AppRole[]): Promise<void> {
   if (!(await hasAnyRole(userId, roles))) {
     throw new Error("Not authorized");

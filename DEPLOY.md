@@ -8,7 +8,12 @@ setup.
 ## 1. Prerequisites on the VM
 
 - Ubuntu 22.04+ (or similar), with a non-root sudo user
-- Node.js 22+ (`node --version` — this app is built and tested on Node 24)
+- **Node.js 24** — install via `setup_24.x`, not `setup_22.x`. This isn't
+  just a "tested on" preference: `package-lock.json` in this repo is
+  generated with npm 11 (Node 24's bundled npm), and `npm ci` under npm 10
+  (Node 22's bundled npm) fails with `Missing: lru-cache@... from lock
+  file` — the two npm majors resolve this project's optional peer deps
+  differently. Confirm with `node --version` / `npm --version`.
 - Postgres 16 (either installed directly on the VM, or run via the included
   `docker-compose.yml` — either is fine, this app only needs a reachable
   `DATABASE_URL`)
@@ -16,7 +21,20 @@ setup.
   server (`scripts/serve.mjs`) speaks plain HTTP only, on purpose; it expects
   to sit behind a proxy that handles HTTPS, same as most Node deployments
 - A domain name pointed at the VM, with a valid TLS cert (`certbot` +
-  Let's Encrypt is the standard free option)
+  Let's Encrypt is the standard free option). No domain yet? `certbot`
+  can still issue a real cert against `<ip-with-dashes>.nip.io` (resolves
+  straight to that IP) — enough to get genuine HTTPS for testing.
+- **Swap space, if the VM has ~1GB RAM or less** (e.g. a free-tier
+  micro instance). `npm ci` / `vite build` can exhaust 1GB and trigger the
+  OOM killer, which can take down the SSH session along with the build.
+  Add a 2GB swapfile before Step 2:
+  ```bash
+  sudo fallocate -l 2G /swapfile
+  sudo chmod 600 /swapfile
+  sudo mkswap /swapfile
+  sudo swapon /swapfile
+  echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+  ```
 
 ## 2. Get the code and configure it
 
@@ -26,6 +44,24 @@ cd growth-compass
 npm ci
 cp .env.example .env   # or hand-write one — see the table below
 ```
+
+After `npm ci`, check whether any install scripts were blocked (a newer npm
+default requires explicit approval for install/postinstall scripts):
+
+```bash
+npm install-scripts ls
+```
+
+If it lists packages (typically `argon2` — needs a native compile via
+node-gyp, this app's password hashing depends on it — and `esbuild`, which
+needs its postinstall to fetch the right binary), approve each one:
+
+```bash
+npm install-scripts approve <package>@<version>
+```
+
+Skipping this produces a build that looks successful but breaks password
+hashing (and possibly the build tooling) at runtime.
 
 There is no `.env.example` committed yet — `.env` is gitignored on purpose
 (it holds real secrets). Copy the variable names from the reference table
@@ -45,7 +81,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 |---|---|---|
 | `BRAND_NAME`, `BRAND_TAGLINE` | Yes | Baked into the build at compile time — see white-label notes below |
 | `SUPPORT_EMAIL` | No | Leave empty to hide the "Contact support" link entirely |
-| `DATABASE_URL` | Yes | `postgres://user:pass@host:5432/dbname` |
+| `DATABASE_URL` | Yes | `postgres://user:pass@host:5432/dbname` — generate the DB password with the `base64url` form of the command above (not plain `base64`); a `/` or `+` in the password breaks URL parsing (`TypeError: Invalid URL` from the `postgres` driver) since it's embedded unescaped in the connection string |
 | `SESSION_SECRET` | Yes | 32 random bytes, base64url |
 | `PLATFORM_ADMIN_CLAIM_SECRET` | Yes | Set before first deploy, claim admin immediately after, then treat as compromised (see step 5) |
 | `APP_BASE_URL` | Yes | The real public URL, e.g. `https://client.example.com` — used to build OAuth redirect URLs and links in emails |
@@ -58,6 +94,40 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 | `SMTP_SECURE` | Yes | `"true"` for port 465, `"false"` for port 587 (STARTTLS) — check your provider's docs |
 | `ALERT_FROM_EMAIL` | Yes | The From address for verification/invite/digest emails |
 | `STORAGE_LOCAL_ROOT`, `STORAGE_BASE_URL` | Yes | Local-disk file storage — fine for a single-VM deployment |
+
+### Setting up SMTP (Brevo)
+
+Every real client needs their **own** SMTP provider account — not one
+shared across clients (see the business-model notes on why: shared send
+quota, shared sender reputation, and it breaks the "fully theirs, no
+ongoing dependency on you" pitch). **Brevo** is the recommended default:
+free tier is 300 emails/day (9,000/month — far more than a small
+business's verification/invite/digest volume), no card required to sign
+up, and it's a standard SMTP relay that plugs directly into the variables
+below.
+
+1. Sign up at brevo.com using the **client's** business email (or yours,
+   if you're managing it on their behalf) → verify the account email.
+2. **Settings → SMTP & API** → **Generate a new SMTP key** — this is
+   `SMTP_PASS` below (not the account password). Note the **SMTP login**
+   shown on the same page — that's `SMTP_USER`.
+3. For real deliverability (skipping this works, but lands in spam more
+   often): **Senders, Domains & Dedicated IPs → Domains → Add a domain**,
+   then add the SPF/DKIM DNS records it gives you at the client's domain
+   registrar.
+
+```
+SMTP_HOST=smtp-relay.brevo.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=<the SMTP login from step 2>
+SMTP_PASS=<the SMTP key from step 2>
+ALERT_FROM_EMAIL=alerts@<client's domain>
+```
+
+Verify it actually works per Step 7 below — sign up a test account and
+confirm the verification email lands in a real inbox, not just that the
+send call didn't error.
 
 ### White-labeling this client
 
@@ -132,6 +202,13 @@ sudo systemctl enable --now growth-compass
 sudo systemctl status growth-compass
 ```
 
+**Don't test sign-up/sign-in yet if TLS isn't live.** The session cookie is
+set with `secure: true` whenever `NODE_ENV=production` (see
+`src/server/functions/auth.ts`), and browsers silently drop `Secure`
+cookies over plain HTTP. Signing in before Step 5 is done will *look* like
+it works (no error) but the session never actually persists — you just get
+bounced back out. Finish Step 5 first, then test auth.
+
 ## 5. Reverse proxy + TLS
 
 Point Nginx at the app and let it handle HTTPS:
@@ -200,14 +277,102 @@ sudo systemctl restart growth-compass
 ## 9. Backups
 
 Postgres is the only stateful piece (file storage is local disk under
-`STORAGE_LOCAL_ROOT` — back that up too if clients upload files).
+`STORAGE_LOCAL_ROOT` — `scripts/backup.sh` backs that up too if it's set
+and non-empty). A single-VM setup has no redundancy on its own, so
+**off-VM backups aren't optional** — do this before the client's real data
+starts flowing in, not after something goes wrong. This matters more than
+it might look: Oracle's Always Free tier reclaims idle compute instances
+after 7 days of low CPU/network/memory usage, and can terminate an entire
+account after 30 days of inactivity — a quiet client's box can genuinely
+get deleted out from under them with no warning.
+
+### 9a. Create the backup bucket (Oracle Cloud)
+
+1. OCI Console → **Storage → Object Storage & Archive Storage → Buckets**
+   → **Create Bucket**. Name it something like `<client>-backups`, leave
+   the rest default → **Create**.
+2. Note your **Object Storage namespace** (Console → your profile menu →
+   **Tenancy: <name>** → shown on that page) and the **region** you're in
+   (e.g. `ap-mumbai-1`) — both go into `.env` below.
+3. Generate a **Customer Secret Key** (this is what makes Object Storage
+   speak the S3-compatible API `scripts/backup.sh` uses): Console → profile
+   menu → **My profile** → **Customer Secret Keys** → **Generate Secret
+   Key**. Copy the key immediately — like the EC2 key pair, it's shown once.
+
+### 9b. Wire it up on the VM
+
+Install the AWS CLI (works against any S3-compatible API, not just AWS):
 
 ```bash
-pg_dump "$DATABASE_URL" > backup-$(date +%F).sql
+sudo apt install -y awscli
 ```
 
-Automate this on a cron job pointed at off-VM storage — a single-VM setup
-has no redundancy otherwise.
+Add these to `.env`, alongside the app's own variables:
+
+```
+BACKUP_S3_BUCKET=<client>-backups
+BACKUP_S3_ENDPOINT=https://<namespace>.compat.objectstorage.<region>.oci.customer-oci.com
+BACKUP_S3_REGION=<region>
+AWS_ACCESS_KEY_ID=<the Customer Secret Key's access key>
+AWS_SECRET_ACCESS_KEY=<the Customer Secret Key's secret key>
+```
+
+Test it once by hand before automating anything:
+
+```bash
+cd ~/growth-compass
+set -a; source .env; set +a
+bash scripts/backup.sh
+```
+
+That should print `[backup] done` and the object(s) should now be visible
+in the OCI bucket. If it fails, the error is almost always the endpoint URL
+(check the namespace/region are right) or the AWS CLI not picking up the
+credentials — `aws configure` interactively as a fallback if `.env` env
+vars aren't being read as expected in your shell.
+
+### 9c. Automate it
+
+```bash
+sudo tee /etc/systemd/system/growth-compass-backup.service > /dev/null <<'EOF'
+[Unit]
+Description=Growth Compass — backup to object storage
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/growth-compass
+EnvironmentFile=/home/ubuntu/growth-compass/.env
+ExecStart=/bin/bash scripts/backup.sh
+EOF
+
+sudo tee /etc/systemd/system/growth-compass-backup.timer > /dev/null <<'EOF'
+[Unit]
+Description=Run growth-compass-backup daily
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now growth-compass-backup.timer
+systemctl list-timers growth-compass-backup.timer
+```
+
+`Persistent=true` means a backup that was missed while the VM was off
+still runs once it's back up, instead of silently waiting for the next
+scheduled day. Check it actually ran the next day with `sudo systemctl
+status growth-compass-backup.service` and `journalctl -u
+growth-compass-backup -n 20`.
+
+Old objects in the bucket aren't cleaned up by this script — set a
+**lifecycle rule** on the bucket (OCI Console → the bucket → **Lifecycle
+Policy Rules**) to auto-expire objects after however long you want backups
+retained (e.g. 30 days), rather than letting them accumulate forever.
 
 ## Known non-blocking issue
 

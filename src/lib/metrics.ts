@@ -366,6 +366,7 @@ export type ChannelPerformance = {
   revenue: number;
   spend: number;
   cac: number;
+  conversionRate: number;
 };
 
 /**
@@ -405,6 +406,8 @@ function channelBreakdown(data: {
       );
       const spend = spendByChannel.get(channel) ?? 0;
       const cac = spend > 0 && channelCustomers.length > 0 ? spend / channelCustomers.length : 0;
+      const conversionRate =
+        channelLeads.length > 0 ? (channelCustomers.length / channelLeads.length) * 100 : 0;
       return {
         channel,
         leads: channelLeads.length,
@@ -412,6 +415,7 @@ function channelBreakdown(data: {
         revenue: channelRevenue,
         spend,
         cac,
+        conversionRate,
       };
     })
     .sort((a, b) => b.revenue - a.revenue);

@@ -10,7 +10,7 @@ import { and, eq, isNull, desc } from "drizzle-orm";
 import { db } from "@/db/client";
 import { organizations, organizationMembers, organizationInvites, userRoles, users } from "@/db/schema";
 import { requireAuth } from "../auth/middleware";
-import { requireOrgMember, requireOrgWrite } from "../authz.server";
+import { requireOrgMember, requireOrgOwner } from "../authz.server";
 import { hashPassword, verifyPassword } from "../auth/password.server";
 import { findUserByEmail, createUser } from "../db-helpers/users.server";
 import { createSession } from "../db-helpers/sessions.server";
@@ -97,7 +97,7 @@ export const inviteTeamMember = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .validator((input: unknown) => inviteInput.parse(input))
   .handler(async ({ data, context }) => {
-    await requireOrgWrite(context.userId, data.orgId);
+    await requireOrgOwner(context.userId, data.orgId);
     const email = data.email.toLowerCase();
 
     const existingUser = await findUserByEmail(email);
@@ -173,7 +173,7 @@ export const revokeInvite = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .validator((input: unknown) => revokeInput.parse(input))
   .handler(async ({ data, context }) => {
-    await requireOrgWrite(context.userId, data.orgId);
+    await requireOrgOwner(context.userId, data.orgId);
     await db
       .update(organizationInvites)
       .set({ revokedAt: new Date() })
@@ -187,7 +187,7 @@ export const removeTeamMember = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .validator((input: unknown) => removeInput.parse(input))
   .handler(async ({ data, context }) => {
-    await requireOrgWrite(context.userId, data.orgId);
+    await requireOrgOwner(context.userId, data.orgId);
 
     const [org] = await db
       .select({ ownerId: organizations.ownerId })

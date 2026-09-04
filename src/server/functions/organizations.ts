@@ -3,7 +3,7 @@ import { z } from "zod";
 import { and, eq, desc } from "drizzle-orm";
 import { db } from "@/db/client";
 import { requireAuth } from "../auth/middleware";
-import { hasAnyRole, requireOrgMember } from "../authz.server";
+import { hasAnyRole, requireOrgMember, requireOrgOwner } from "../authz.server";
 import { toWireRow, toWireRows, wireColumn } from "../wire";
 import { ROW_TABLES, SINGLETON_TABLES } from "./rows";
 import { generateActivationCode, hashActivationCode } from "../auth/activation.server";
@@ -247,7 +247,7 @@ export const exportOrgData = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .validator((input: unknown) => orgIdInput.parse(input))
   .handler(async ({ data, context }) => {
-    await requireOrgMember(context.userId, data.orgId);
+    await requireOrgOwner(context.userId, data.orgId);
 
     const [org] = await db
       .select()

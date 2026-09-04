@@ -102,6 +102,14 @@ function ReportsPage() {
       ["Lead source", "Leads"],
       ...bySource.map((s) => [s.name, s.value]),
       [],
+      ["Channel", "Leads", "Customers", "Conversion rate"],
+      ...m.channelPerformance.map((ch) => [
+        ch.channel,
+        ch.leads,
+        ch.customers,
+        `${Math.round(ch.conversionRate)}%`,
+      ]),
+      [],
       ["Product / service", "Revenue"],
       ...byProduct.map((s) => [s.name, s.value]),
       [],
@@ -232,6 +240,42 @@ function ReportsPage() {
                   />
                 </PieChart>
               </ResponsiveContainer>
+            </div>
+          )}
+        </Panel>
+
+        <Panel
+          title="Conversion by platform"
+          description="Leads, customers and conversion rate per channel"
+        >
+          {m.channelPerformance.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No leads or customers with a source yet.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left text-xs tracking-wide text-muted-foreground uppercase">
+                    <th className="py-2 pr-4 font-medium">Channel</th>
+                    <th className="py-2 pr-4 font-medium">Leads</th>
+                    <th className="py-2 pr-4 font-medium">Customers</th>
+                    <th className="py-2 pr-4 font-medium">Conversion</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {m.channelPerformance.map((ch) => (
+                    <tr key={ch.channel} className="border-b last:border-0">
+                      <td className="py-2 pr-4 font-medium capitalize">{ch.channel}</td>
+                      <td className="num py-2 pr-4">{ch.leads}</td>
+                      <td className="num py-2 pr-4">{ch.customers}</td>
+                      <td className="num py-2 pr-4">
+                        {ch.leads > 0 ? pct(ch.conversionRate, 0) : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </Panel>
