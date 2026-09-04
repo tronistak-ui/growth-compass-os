@@ -243,14 +243,102 @@ sudo systemctl restart growth-compass
 ## 9. Backups
 
 Postgres is the only stateful piece (file storage is local disk under
-`STORAGE_LOCAL_ROOT` — back that up too if clients upload files).
+`STORAGE_LOCAL_ROOT` — `scripts/backup.sh` backs that up too if it's set
+and non-empty). A single-VM setup has no redundancy on its own, so
+**off-VM backups aren't optional** — do this before the client's real data
+starts flowing in, not after something goes wrong. This matters more than
+it might look: Oracle's Always Free tier reclaims idle compute instances
+after 7 days of low CPU/network/memory usage, and can terminate an entire
+account after 30 days of inactivity — a quiet client's box can genuinely
+get deleted out from under them with no warning.
+
+### 9a. Create the backup bucket (Oracle Cloud)
+
+1. OCI Console → **Storage → Object Storage & Archive Storage → Buckets**
+   → **Create Bucket**. Name it something like `<client>-backups`, leave
+   the rest default → **Create**.
+2. Note your **Object Storage namespace** (Console → your profile menu →
+   **Tenancy: <name>** → shown on that page) and the **region** you're in
+   (e.g. `ap-mumbai-1`) — both go into `.env` below.
+3. Generate a **Customer Secret Key** (this is what makes Object Storage
+   speak the S3-compatible API `scripts/backup.sh` uses): Console → profile
+   menu → **My profile** → **Customer Secret Keys** → **Generate Secret
+   Key**. Copy the key immediately — like the EC2 key pair, it's shown once.
+
+### 9b. Wire it up on the VM
+
+Install the AWS CLI (works against any S3-compatible API, not just AWS):
 
 ```bash
-pg_dump "$DATABASE_URL" > backup-$(date +%F).sql
+sudo apt install -y awscli
 ```
 
-Automate this on a cron job pointed at off-VM storage — a single-VM setup
-has no redundancy otherwise.
+Add these to `.env`, alongside the app's own variables:
+
+```
+BACKUP_S3_BUCKET=<client>-backups
+BACKUP_S3_ENDPOINT=https://<namespace>.compat.objectstorage.<region>.oci.customer-oci.com
+BACKUP_S3_REGION=<region>
+AWS_ACCESS_KEY_ID=<the Customer Secret Key's access key>
+AWS_SECRET_ACCESS_KEY=<the Customer Secret Key's secret key>
+```
+
+Test it once by hand before automating anything:
+
+```bash
+cd ~/growth-compass
+set -a; source .env; set +a
+bash scripts/backup.sh
+```
+
+That should print `[backup] done` and the object(s) should now be visible
+in the OCI bucket. If it fails, the error is almost always the endpoint URL
+(check the namespace/region are right) or the AWS CLI not picking up the
+credentials — `aws configure` interactively as a fallback if `.env` env
+vars aren't being read as expected in your shell.
+
+### 9c. Automate it
+
+```bash
+sudo tee /etc/systemd/system/growth-compass-backup.service > /dev/null <<'EOF'
+[Unit]
+Description=Growth Compass — backup to object storage
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/growth-compass
+EnvironmentFile=/home/ubuntu/growth-compass/.env
+ExecStart=/bin/bash scripts/backup.sh
+EOF
+
+sudo tee /etc/systemd/system/growth-compass-backup.timer > /dev/null <<'EOF'
+[Unit]
+Description=Run growth-compass-backup daily
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now growth-compass-backup.timer
+systemctl list-timers growth-compass-backup.timer
+```
+
+`Persistent=true` means a backup that was missed while the VM was off
+still runs once it's back up, instead of silently waiting for the next
+scheduled day. Check it actually ran the next day with `sudo systemctl
+status growth-compass-backup.service` and `journalctl -u
+growth-compass-backup -n 20`.
+
+Old objects in the bucket aren't cleaned up by this script — set a
+**lifecycle rule** on the bucket (OCI Console → the bucket → **Lifecycle
+Policy Rules**) to auto-expire objects after however long you want backups
+retained (e.g. 30 days), rather than letting them accumulate forever.
 
 ## Known non-blocking issue
 
