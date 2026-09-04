@@ -95,6 +95,40 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 | `ALERT_FROM_EMAIL` | Yes | The From address for verification/invite/digest emails |
 | `STORAGE_LOCAL_ROOT`, `STORAGE_BASE_URL` | Yes | Local-disk file storage — fine for a single-VM deployment |
 
+### Setting up SMTP (Brevo)
+
+Every real client needs their **own** SMTP provider account — not one
+shared across clients (see the business-model notes on why: shared send
+quota, shared sender reputation, and it breaks the "fully theirs, no
+ongoing dependency on you" pitch). **Brevo** is the recommended default:
+free tier is 300 emails/day (9,000/month — far more than a small
+business's verification/invite/digest volume), no card required to sign
+up, and it's a standard SMTP relay that plugs directly into the variables
+below.
+
+1. Sign up at brevo.com using the **client's** business email (or yours,
+   if you're managing it on their behalf) → verify the account email.
+2. **Settings → SMTP & API** → **Generate a new SMTP key** — this is
+   `SMTP_PASS` below (not the account password). Note the **SMTP login**
+   shown on the same page — that's `SMTP_USER`.
+3. For real deliverability (skipping this works, but lands in spam more
+   often): **Senders, Domains & Dedicated IPs → Domains → Add a domain**,
+   then add the SPF/DKIM DNS records it gives you at the client's domain
+   registrar.
+
+```
+SMTP_HOST=smtp-relay.brevo.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=<the SMTP login from step 2>
+SMTP_PASS=<the SMTP key from step 2>
+ALERT_FROM_EMAIL=alerts@<client's domain>
+```
+
+Verify it actually works per Step 7 below — sign up a test account and
+confirm the verification email lands in a real inbox, not just that the
+send call didn't error.
+
 ### White-labeling this client
 
 Before building: set `BRAND_NAME`/`BRAND_TAGLINE` in `.env`, and replace
